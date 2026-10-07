@@ -1,0 +1,57 @@
+[
+  {
+    "question": "Hva betyr nevroplastisitet?",
+    "options": [
+      "Hjernens evne til å produsere mer oksygen",
+      "Hjernens evne til å tilpasse seg ved å endre forbindelser mellom nerveceller",
+      "Hjernens evne til å forhindre at nerveceller aktiveres",
+      "Hjernens evne til å øke pulsen under fysisk aktivitet"
+    ],
+    "answer": 1,
+    "points": 2
+  },
+  {
+    "question": "Hvilken rolle har hippocampus?",
+    "options": [
+      "Den regulerer hovedsakelig kroppens temperatur",
+      "Den styrer hovedsakelig musklenes bevegelser",
+      "Den har en sentral rolle i dannelsen og behandlingen av enkelte typer minner",
+      "Den produserer oksygen som hjernen trenger"
+    ],
+    "answer": 2,
+    "points": 2
+  },
+  {
+    "question": "Hvilket av følgende er IKKE nevnt som en mulig effekt av fysisk aktivitet på hjernen eller kognitive funksjoner?",
+    "options": [
+      "Endringer i signalstoffer",
+      "Påvirkning av nevroplastisitet",
+      "Økt blodgjennomstrømning",
+      "Permanent økning i størrelsen på alle deler av hjernen"
+    ],
+    "answer": 3,
+    "points": 2
+  },
+  {
+    "question": "Hvorfor kan fysisk aktivitet påvirke læring indirekte?",
+    "options": [
+      "Fordi fysisk aktivitet gjør at hjernen ikke trenger søvn",
+      "Fordi fysisk aktivitet kan påvirke blant annet søvn, stress og motivasjon, som igjen kan påvirke læring",
+      "Fordi fysisk aktivitet gjør alle typer oppgaver enklere",
+      "Fordi fysisk aktivitet gjør at alle signalstoffer i hjernen øker samtidig"
+    ],
+    "answer": 1,
+    "points": 3
+  },
+  {
+    "question": "Hvorfor må man skille mellom en enkelt treningsøkt og regelmessig trening over lengre tid?",
+    "options": [
+      "En enkelt treningsøkt påvirker bare musklene, mens regelmessig trening bare påvirker hjernen",
+      "De har alltid nøyaktig samme effekt, men varer ulikt lenge",
+      "En enkelt økt kan gi kortvarige effekter som økt våkenhet, mens regelmessig trening kan føre til langsiktige fysiologiske tilpasninger",
+      "Regelmessig trening påvirker ikke kognitive funksjoner"
+    ],
+    "answer": 2,
+    "points": 5
+  }
+]
