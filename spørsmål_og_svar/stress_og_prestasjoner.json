@@ -1,0 +1,57 @@
+[
+  {
+    "question": "Hva skjer i kroppen når det sympatiske nervesystemet blir aktivert under stress?",
+    "options": [
+      "Pulsen går ned, og kroppen bruker mindre energi",
+      "Pulsen øker, pusten kan bli raskere, og mer energi blir gjort tilgjengelig",
+      "Hjernen slutter midlertidig å behandle informasjon",
+      "Produksjonen av adrenalin og kortisol stopper"
+    ],
+    "answer": 1,
+    "points": 2
+  },
+  {
+    "question": "Hvorfor kan moderat stress i enkelte situasjoner gi bedre prestasjon?",
+    "options": [
+      "Fordi moderat stress fjerner behovet for arbeidsminne",
+      "Fordi moderat stress kan øke oppmerksomheten, årvåkenheten og motivasjonen",
+      "Fordi moderat stress gjør at personen alltid arbeider raskere uten å gjøre feil",
+      "Fordi moderat stress hindrer kroppen i å frigjøre kortisol"
+    ],
+    "answer": 1,
+    "points": 2
+  },
+  {
+    "question": "Hvordan kan stress påvirke arbeidsminnet?",
+    "options": [
+      "Stress gjør alltid arbeidsminnet større",
+      "Stress kan bruke deler av den mentale kapasiteten på bekymringer, slik at mindre kapasitet er tilgjengelig for oppgaven",
+      "Stress gjør at informasjon automatisk blir lagret i langtidsminnet",
+      "Stress påvirker bare fysisk reaksjonsevne og ikke arbeidsminnet"
+    ],
+    "answer": 1,
+    "points": 2
+  },
+  {
+    "question": "Hvorfor er tidspunktet for stress viktig når man undersøker hvordan stress påvirker læring og hukommelse?",
+    "options": [
+      "Fordi stress bare påvirker læring dersom det skjer om morgenen",
+      "Fordi stress før læring, etter læring og under en test kan påvirke ulike deler av lærings- og hukommelsesprosessen",
+      "Fordi stress bare har effekt dersom det oppstår etter at informasjonen er lært",
+      "Fordi tidspunktet avgjør hvor mye adrenalin kroppen kan produsere"
+    ],
+    "answer": 1,
+    "points": 3
+  },
+  {
+    "question": "Hvorfor blir sammenhengen mellom stress og prestasjon beskrevet som ikke-lineær?",
+    "options": [
+      "Fordi mer stress alltid gir bedre prestasjon fram til personen slutter å arbeide",
+      "Fordi stress ikke har noen sammenheng med prestasjon",
+      "Fordi en viss grad av aktivering kan forbedre prestasjonen, mens svært lav eller svært høy aktivering kan gi dårligere prestasjon",
+      "Fordi alle mennesker presterer best ved nøyaktig samme stressnivå"
+    ],
+    "answer": 2,
+    "points": 5
+  }
+]

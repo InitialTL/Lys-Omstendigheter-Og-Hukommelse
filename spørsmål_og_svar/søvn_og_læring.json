@@ -1,0 +1,57 @@
+[
+  {
+    "question": "Hva betyr minnekonsolidering?",
+    "options": [
+      "Prosessen der hjernen fjerner all informasjon som ikke brukes med en gang",
+      "Prosessen der nylig tilegnet informasjon gradvis blir mer stabil",
+      "Prosessen der arbeidsminnet blir større under søvn",
+      "Prosessen der hjernen slutter å danne nye forbindelser mellom nerveceller"
+    ],
+    "answer": 1,
+    "points": 2
+  },
+  {
+    "question": "Hva kjennetegner dyp NREM-søvn ifølge teksten?",
+    "options": [
+      "Raske øyebevegelser og svært høy muskelaktivitet",
+      "At hjernen ikke har noen elektrisk aktivitet",
+      "Langsomme elektriske svingninger i hjernen",
+      "At personen alltid drømmer om informasjon som ble lært samme dag"
+    ],
+    "answer": 2,
+    "points": 2
+  },
+  {
+    "question": "Hva menes med reaktivering av minner under søvn?",
+    "options": [
+      "At informasjon som ble behandlet mens personen var våken, delvis aktiveres igjen under søvnen",
+      "At alle minner slettes og lagres på nytt hver natt",
+      "At personen bevisst forsøker å huske informasjon mens han eller hun sover",
+      "At arbeidsminnet fortsetter å motta ny informasjon fra omgivelsene"
+    ],
+    "answer": 0,
+    "points": 2
+  },
+  {
+    "question": "Hvorfor kan søvnmangel føre til dårligere resultat på en hukommelsestest?",
+    "options": [
+      "Fordi søvnmangel bare påvirker evnen til å lese raskt",
+      "Fordi søvnmangel gjør at allerede lagrede minner alltid forsvinner permanent",
+      "Fordi søvnmangel kan påvirke både oppmerksomheten under læringen og bearbeidingen av informasjonen etterpå",
+      "Fordi personer som sover lite ikke kan bruke arbeidsminnet i det hele tatt"
+    ],
+    "answer": 2,
+    "points": 3
+  },
+  {
+    "question": "Hvorfor betyr et dårlig resultat på en hukommelsestest ikke nødvendigvis at personen aldri lærte informasjonen?",
+    "options": [
+      "Fordi all informasjon automatisk lagres permanent så lenge personen har lest den én gang",
+      "Fordi problemet kan ha oppstått under læringen, lagringen eller gjenhentingen av informasjonen",
+      "Fordi hukommelsestester bare måler hvor mye søvn en person har fått",
+      "Fordi informasjon som ikke huskes med en gang alltid blir tilgjengelig senere"
+    ],
+    "answer": 1,
+    "points": 5
+  }
+]
