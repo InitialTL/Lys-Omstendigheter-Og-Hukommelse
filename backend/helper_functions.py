@@ -1,11 +1,13 @@
 from pathlib import Path
 import json
 
-TEXT_DIRECTORY = Path("tekster")
-TEXT_FILES = list(TEXT_DIRECTORY.glob("*.txt"))
+BASE_DIRECTORY = Path(__file__).resolve().parent
 
-Q_AND_A_DIRECTORY = Path("spørsmål_og_svar")
-Q_AND_A_FILES = list(Q_AND_A_DIRECTORY.glob("*.json"))
+TEXT_DIRECTORY = BASE_DIRECTORY / "tekster"
+TEXT_FILES = sorted(TEXT_DIRECTORY.glob("*.txt"))
+
+Q_AND_A_DIRECTORY = BASE_DIRECTORY / "spørsmål_og_svar"
+Q_AND_A_FILES = sorted(Q_AND_A_DIRECTORY.glob("*.json"))
 
 def get_texts() -> dict[str, str]:
     """
@@ -21,11 +23,11 @@ def get_texts() -> dict[str, str]:
             continue
         
         with text.open("r", encoding="utf-8") as t:
-            texts[text.stem] = t.readlines()
+            texts[text.stem] = t.read()
     
     return texts
 
-def get_qap() -> dict[str, tuple[dict]]:
+def get_qap() -> dict[str, tuple[dict, ...]]:
     """
     Returns:
         Alle spørsmålene, svarene og poengene for hver av spørsmålene som ligger i ./spørsmål_og_svar/
@@ -36,11 +38,12 @@ def get_qap() -> dict[str, tuple[dict]]:
     q_and_a = {}
     
     for file in Q_AND_A_FILES:
-        if file.stat().st_size == 0:
+        content = file.read_text(encoding="utf-8")
+        
+        if not content.strip():
             continue
         
-        with file.open("r", encoding="utf-8") as f:
-            q_and_a[file.stem] = tuple(json.load(f))
+        q_and_a[file.stem] = tuple(json.loads(content))
     return q_and_a
 
 if __name__ == '__main__':

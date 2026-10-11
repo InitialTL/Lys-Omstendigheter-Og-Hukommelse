@@ -1,0 +1,57 @@
+[
+  {
+    "question": "Kva betyr nevroplastisitet?",
+    "options": [
+      "Hjernen si evne til å produsere meir oksygen under trening",
+      "Hjernen si evne til å tilpasse seg ved at forbindelsar mellom nerveceller kan endrast",
+      "Hjernen si evne til å auke pulsen under fysisk aktivitet",
+      "Hjernen si evne til å hindre at nerveceller blir aktiverte"
+    ],
+    "answer": 1,
+    "points": 2
+  },
+  {
+    "question": "Kva rolle har hippocampus ifølgje teksten?",
+    "options": [
+      "Han regulerer hovudsakleg kroppstemperaturen",
+      "Han styrer hovudsakleg muskelbevegelsar",
+      "Han har ei sentral rolle i danninga og behandlinga av enkelte typar minne",
+      "Han produserer signalstoffa dopamin og serotonin"
+    ],
+    "answer": 2,
+    "points": 2
+  },
+  {
+    "question": "Kvifor kan svært intensiv fysisk aktivitet føre til dårlegare kognitiv prestasjon rett etterpå?",
+    "options": [
+      "Fordi blodtilførselen til hjernen alltid stoppar ved høg intensitet",
+      "Fordi fysisk trettleik og belastning kan gjere det vanskelegare å prestere på ei kognitiv oppgåve",
+      "Fordi høg intensitet fjernar alle signalstoff frå hjernen",
+      "Fordi arbeidsminnet sluttar å fungere permanent etter hard trening"
+    ],
+    "answer": 1,
+    "points": 2
+  },
+  {
+    "question": "Kvifor kan fysisk aktivitet påverke læring indirekte?",
+    "options": [
+      "Fordi fysisk aktivitet gjer at hjernen ikkje lenger treng søvn",
+      "Fordi fysisk aktivitet kan påverke søvn, stress, motivasjon og energinivå, som igjen kan påverke læring",
+      "Fordi fysisk aktivitet automatisk gjer alle typar minne sterkare",
+      "Fordi fysisk aktivitet alltid aukar arbeidsminnet uavhengig av andre faktorar"
+    ],
+    "answer": 1,
+    "points": 3
+  },
+  {
+    "question": "Kvifor må ein skilje mellom effekten av éi treningsøkt og effekten av regelmessig trening over lengre tid?",
+    "options": [
+      "Fordi éi treningsøkt berre påverkar musklane, medan regelmessig trening berre påverkar hjernen",
+      "Fordi begge alltid gir nøyaktig dei same fysiologiske effektane",
+      "Fordi éi økt kan gi kortvarige effektar som auka merksemd og årvakenheit, medan regelmessig trening kan føre til meir langsiktige fysiologiske tilpassingar",
+      "Fordi regelmessig trening ikkje kan påverke kognitive funksjonar"
+    ],
+    "answer": 2,
+    "points": 5
+  }
+]
