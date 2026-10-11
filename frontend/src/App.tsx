@@ -1,6 +1,6 @@
 import { useState } from "react";
-import ReadingTest from "./components/ReadingTest";
-import Introduction from "./components/Introduction";
+import ReadingTest from "./components/ReadingTest.tsx";
+import Introduction from "./components/Introduction.tsx";
 
 type Stage = "introduction" | "reading" | "questions" | "finished";
 
