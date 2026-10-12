@@ -1,13 +1,66 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReadingTest from "./components/ReadingTest.tsx";
 import Introduction from "./components/Introduction.tsx";
+import Questions from "./components/Questions.tsx";
+import type { Question } from "./components/Questions.tsx";
 
 type Stage = "introduction" | "reading" | "questions" | "finished";
 
 function App() {
   const [stage, setStage] = useState<Stage>("introduction");
   const [textIndex, setTextIndex] = useState<number>(0);
+  const [text, setText] = useState<string>("");
+  const [loadedText, setLoadedText] = useState<number | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loadedQuestions, setLoadedQuestions] = useState<number | null>(null);
   
+  function nextText() {
+    if (textIndex < 2) {
+      setTextIndex(prev => prev + 1);
+      setStage("reading");
+    } else {
+      setStage("finished");
+    }
+  }
+
+  useEffect(() => {
+    async function getText() {
+      const response = await fetch(`/api/text/${textIndex}`);
+      const data = await response.json();
+
+      setText(data.text);
+      setLoadedText(textIndex);
+    }
+
+    getText();
+  }, [textIndex]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function getQuestions() {
+      try {
+        const response = await fetch(`/api/questions/${textIndex}`, { signal: controller.signal });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        setQuestions(data.questions);
+        setLoadedQuestions(textIndex);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("Failed to fetch questions", error);
+        }
+      }
+    }
+
+    getQuestions();
+    return () => controller.abort();
+  }, [textIndex]);
+
   switch (stage) {
     case "introduction":
       return (
@@ -19,17 +72,28 @@ function App() {
     );
 
     case "reading":
+      if (loadedText !== textIndex) {
+        return <p>Loading text...</p>
+      }
       return (
         <ReadingTest
           title="Hello"
-          content="World..."
+          content={text}
           onFinished={() => setStage("questions")}
         />
       );
 
     case "questions":
+      if (loadedQuestions !== textIndex) {
+        return <p>Loading questions...</p>
+      }
+
       return (
-        <p>question bla bla bla</p>
+        <Questions 
+          title={`Questions for text ${textIndex + 1}`}
+          questions={questions}
+          onFinished={nextText}
+        />
       );
     
     case "finished":
@@ -42,7 +106,8 @@ function App() {
         <p>An error occured</p>
       );
   }
-
 }
+
+
 
 export default App;

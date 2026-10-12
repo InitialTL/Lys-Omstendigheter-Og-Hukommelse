@@ -9,8 +9,8 @@ texts = helper_functions.get_texts()
 
 keys = list(texts.keys())
 
-@app.get("/test/{textID}")
-def test(textID: int):
+@app.get("/text/{textID}")
+def text(textID: int):
     if not (0 <= textID <= len(questions_and_information) - 1):
         return None    
     
@@ -19,6 +19,23 @@ def test(textID: int):
     
     return {"status": "OK",
             "text": text}
+    
+@app.get("/questions/{textID}")
+def questions(textID: int):
+    if not (0 <= textID <= len(questions_and_information) - 1):
+        return None   
+
+    questions = [
+        {
+            "question": q["question"],
+            "options": q["options"],
+            "points": q["points"]
+        }
+        for q in questions_and_information[keys[textID]]
+    ]
+    
+    return {"status": "OK",
+            "questions": questions}
 
 if (__name__ == '__main__'):
     uvicorn.run(app, host="127.0.0.1", port=8000)

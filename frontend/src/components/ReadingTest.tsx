@@ -1,16 +1,16 @@
-import { useState } from "react";
-
 type Text = {
     title: string;
     content: string;
     onFinished: () => void;
 };
 
-function ReadingTest({ title, content, onFinished }: Text) {
+function ReadingTest({ content, onFinished }: Text) {
+    const [heading, ...paragraphs] = content.split(/\r?\n/);
+
     return (
-        <div>
-            <h1>{title}</h1>
-            <p>{content}</p>
+        <div className="text">
+            <h1>{heading}</h1>
+            {paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
             <button onClick={() => {
                 onFinished();
             }}>
