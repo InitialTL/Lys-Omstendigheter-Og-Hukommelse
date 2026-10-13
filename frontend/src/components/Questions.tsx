@@ -18,11 +18,17 @@ function Questions({ title, questions, onFinished }: QuestionsProps) {
             {questions.map((q, index) => (
                 <div key={index}>
                     <h2>{q.question}</h2>
-
+                    
                     {q.options.map((option, optionIndex) => (
-                        <p key={optionIndex}>
-                            {optionIndex + 1}. {option}
-                        </p>
+                        <label key={optionIndex} style={{ display: "block" }}>
+                            <input
+                                type="radio"
+                                key={optionIndex}
+                                name={`question-${optionIndex}`}
+                                value={option}
+                            />
+                            {option}
+                        </label>
                     ))}
 
                     <p>Poeng: {q.points}</p>
