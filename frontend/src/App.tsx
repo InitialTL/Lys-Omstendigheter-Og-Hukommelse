@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import ReadingTest from "./components/ReadingTest.tsx";
 import Introduction from "./components/Introduction.tsx";
 import Questions from "./components/Questions.tsx";
+import LightsettingQ from "./components/LightsettingQ.tsx";
 import type { Question } from "./components/Questions.tsx";
 
-type Stage = "introduction" | "reading" | "questions" | "finished";
+type Stage = "introduction" | "reading" | "questions" | "lighting" | "finished";
 
 function App() {
   const [stage, setStage] = useState<Stage>("introduction");
@@ -19,9 +20,34 @@ function App() {
       setTextIndex(prev => prev + 1);
       setStage("reading");
     } else {
-      setStage("finished");
+      setStage("lighting");
     }
+}
+
+async function submitAnswers(answers: number[]) {
+  try {
+    const response = await fetch(`/api/answers/${textIndex}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ answers }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const result = await response.json();
+
+    console.log("Score:", result.score);
+    console.log("Maximum score:", result.max_score);
+
+    nextText();
+  } catch (error) {
+    console.error("Failed to submit answers:", error);
   }
+}
 
   useEffect(() => {
     async function getText() {
@@ -90,11 +116,23 @@ function App() {
 
       return (
         <Questions 
+          key={textIndex}
           title={`Questions for text ${textIndex + 1}`}
           questions={questions}
-          onFinished={nextText}
+          onFinished={submitAnswers}
         />
       );
+
+    case "lighting":
+      return (
+        <LightsettingQ 
+          title={"What light setting are you sitting in?"}
+          onFinished={(lighting) => {
+            console.log(lighting);
+            setStage("finished");
+          }}
+        />
+        );
     
     case "finished":
       return (

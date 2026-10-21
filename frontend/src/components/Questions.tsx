@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export type Question = {
     question: string;
     options: string[];
@@ -7,10 +9,22 @@ export type Question = {
 type QuestionsProps = {
     title: string;
     questions: Question[];
-    onFinished: () => void;
+    onFinished: (answers: number[]) => void;
 };
 
 function Questions({ title, questions, onFinished }: QuestionsProps) {
+    const [answers, setAnswers] = useState<number[]>(
+        Array(questions.length).fill(-1)
+    );
+
+    function selectAnswer(questionIndex: number, optionIndex: number) {
+        setAnswers(prev => 
+            prev.map((answer, index) => 
+                index === questionIndex ? optionIndex : answer
+            )
+        );
+    }
+
     return (
         <div className="questions">
             <h1>{title}</h1>
@@ -23,9 +37,10 @@ function Questions({ title, questions, onFinished }: QuestionsProps) {
                         <label key={optionIndex} style={{ display: "block" }}>
                             <input
                                 type="radio"
-                                key={optionIndex}
-                                name={`question-${optionIndex}`}
+                                name={`question-${index}`}
                                 value={option}
+                                checked={answers[index] === optionIndex}
+                                onChange={() => selectAnswer(index, optionIndex)}
                             />
                             {option}
                         </label>
@@ -35,9 +50,11 @@ function Questions({ title, questions, onFinished }: QuestionsProps) {
                 </div>
             ))}
 
-            <button onClick={() => {
-                onFinished();
-            }}>
+            <button 
+                disabled={answers.includes(-1)}
+                onClick={() => {
+                    onFinished(answers);
+                }}>
                 Send
             </button>
         </div>
