@@ -39,6 +39,17 @@ def init_db():
                     REFERENCES participants(id)
             )
         """)
+        
+        
+        columns = [
+            row["name"] for row in conn.execute("PRAGMA table_info(experiment_results)")
+        ]
+        
+        if ("completed_at" not in columns):
+            conn.execute("""
+                ALTER TABLE experiment_results
+                ADD COLUMN completed_at TEXT         
+            """)
 
 def create_participant():
     with connect() as conn:
@@ -109,8 +120,8 @@ def save_result(participant_id, text_id, answers, score, max_score):
         conn.execute(
             """
                 INSERT INTO experiment_results
-                (participant_id, text_id, lighting, answers, score, max_score)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (participant_id, text_id, lighting, answers, score, max_score, completed_at)
+                VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
             """, (
                 participant_id,
                 text_id,
