@@ -45,7 +45,10 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     page.goto(BASE, wait_until='networkidle')
     page.locator('.consent-control input').check()
     page.get_by_role('button', name='Begin experiment').click()
-    page.locator('.calibration-checklist').wait_for()
+    try:
+        page.locator('.calibration-checklist').wait_for(timeout=10000)
+    except Exception as exc:
+        raise AssertionError(f'Calibration was not shown at {width}px. Page text: {page.locator("body").inner_text()[:750]}; console: {errors}') from exc
     for tile in page.locator('.check-tile').all():
         tile.click()
     page.get_by_role('button', name='I am ready').click()

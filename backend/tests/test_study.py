@@ -302,6 +302,11 @@ def test_reject_host_spoof_and_cross_site_writes(client):
         'language':'en', 'age_band':'18_24', 'gender':'prefer_not', 'consent':True
     })
     assert local.status_code == 201
+    # Same host+port is accepted regardless of a nonstandard local test port.
+    same_site = c.post('/api/participants', headers={'Origin':'http://testserver'}, json={
+        'language':'en', 'age_band':'18_24', 'gender':'prefer_not', 'consent':True
+    })
+    assert same_site.status_code == 201
 
 
 def test_api_rejects_oversized_payload_and_preserves_db(client):

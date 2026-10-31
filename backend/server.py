@@ -51,7 +51,13 @@ async def safe_response_headers(request: Request, call_next):
             origin = request.headers.get('origin')
             # Browsers supply Origin for writes; non-browser clients may omit it.
             # Authenticated actions still require the independent bearer token.
-            if origin and origin.rstrip('/') not in _allowed_origins:
+            # On a single-origin deployment, a trusted Host plus matching
+            # Origin is sufficient; the port is allowed to vary between
+            # local test instances. Cross-origin development needs an explicit
+            # allowlist entry. TrustedHostMiddleware validates this Host.
+            same_origin_host = request.headers.get('host', '')
+            same_site = origin in (f'http://{same_origin_host}', f'https://{same_origin_host}')
+            if origin and not same_site and origin.rstrip('/') not in _allowed_origins:
                 return JSONResponse({'detail':'Origin not allowed'}, status_code=403)
         raw_length = request.headers.get('content-length')
         if raw_length:
