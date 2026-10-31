@@ -1,6 +1,7 @@
 """Hukommelse LM – React client and FastAPI study server."""
 from __future__ import annotations
 import csv
+import ipaddress
 import io
 import os
 import secrets
@@ -12,12 +13,30 @@ from typing import Literal
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field, ConfigDict
 
 import database
 import words
 
-app = FastAPI(title="Hukommelse LM API", version="2.1.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="Hukommelse LM API", version="2.2.0", docs_url=None, redoc_url=None)
+
+# A publicly reachable origin must be placed behind HTTPS and a firewall or
+# Cloudflare Tunnel. Never accept arbitrary Host headers on the origin.
+_hosts = [host.strip() for host in os.getenv(
+    "STUDY_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver,::1"
+).split(",") if host.strip()]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=_hosts)
+
+# API requests only contain tiny JSON payloads. Reject oversized bodies at
+# the origin as well as at the reverse proxy (see deployment guide).
+MAX_API_BODY = 8192
+_dev_origins = {"http://localhost:5173", "http://127.0.0.1:5173",
+                "http://localhost:8000", "http://127.0.0.1:8000"}
+_allowed_origins = _dev_origins | {
+    origin.strip().rstrip("/") for origin in os.getenv("STUDY_ALLOWED_ORIGINS", "").split(",") if origin.strip()
+}
+
 
 # Lightweight per-process guard against bulk account creation. In a public
 # deployment, additionally enforce rate limits at the reverse proxy.
@@ -25,6 +44,22 @@ _registration_times: dict[str, deque[float]] = defaultdict(deque)
 
 @app.middleware("http")
 async def safe_response_headers(request: Request, call_next):
+    from fastapi.responses import JSONResponse
+    path = request.url.path
+    if path.startswith('/api/'):
+        if request.method not in ('GET', 'HEAD', 'OPTIONS'):
+            origin = request.headers.get('origin')
+            # Browsers supply Origin for writes; non-browser clients may omit it.
+            # Authenticated actions still require the independent bearer token.
+            if origin and origin.rstrip('/') not in _allowed_origins:
+                return JSONResponse({'detail':'Origin not allowed'}, status_code=403)
+        raw_length = request.headers.get('content-length')
+        if raw_length:
+            try:
+                if int(raw_length) > MAX_API_BODY:
+                    return JSONResponse({'detail':'Request is too large'}, status_code=413)
+            except ValueError:
+                return JSONResponse({'detail':'Invalid Content-Length'}, status_code=400)
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -32,6 +67,7 @@ async def safe_response_headers(request: Request, call_next):
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store, private"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     # Vite's development server requires an HMR-specific CSP; restrict only
     # static production responses served by FastAPI here.
     elif DIST.exists():
@@ -79,7 +115,7 @@ def build_state(participant_id: str) -> dict:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "2.1.0"}
+    return {"status": "ok", "version": "2.2.0"}
 
 
 @app.get("/api/config")
@@ -104,6 +140,15 @@ def config():
 def register(payload: Registration, request: Request):
     # IPs are held in RAM for at most ten minutes, never written to the DB.
     ip = request.client.host if request.client else "unknown"
+    # Only accept Cloudflare's client IP when explicitly enabled AND the origin
+    # is accessible solely via a local Cloudflare Tunnel / trusted proxy.
+    # Never trust this header when the origin can be reached directly.
+    if (os.getenv("STUDY_TRUST_CLOUDFLARE") == "1" and ip in ("127.0.0.1", "::1")):
+        claimed = request.headers.get("CF-Connecting-IP", "")
+        try:
+            ip = str(ipaddress.ip_address(claimed))
+        except ValueError:
+            ip = "unknown"
     now = time.monotonic()
     times = _registration_times[ip]
     while times and times[0] < now - 600:

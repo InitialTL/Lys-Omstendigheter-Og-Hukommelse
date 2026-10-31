@@ -289,3 +289,68 @@ def test_recall_has_full_time_after_distraction_and_is_not_auto_submitted(client
     assert unchanged['phase_end_at'] > unchanged['server_now'] + 119
     with database.connect() as db:
         assert db.execute('SELECT COUNT(*) FROM study_results').fetchone()[0] == 0
+
+
+def test_reject_host_spoof_and_cross_site_writes(client):
+    c, clock = client
+    assert c.get('/api/health', headers={'Host':'attacker.example'}).status_code == 400
+    other_site = c.post('/api/participants', headers={'Origin':'https://attacker.example'}, json={
+        'language':'en', 'age_band':'18_24', 'gender':'prefer_not', 'consent':True
+    })
+    assert other_site.status_code == 403
+    local = c.post('/api/participants', headers={'Origin':'http://localhost:5173'}, json={
+        'language':'en', 'age_band':'18_24', 'gender':'prefer_not', 'consent':True
+    })
+    assert local.status_code == 201
+
+
+def test_api_rejects_oversized_payload_and_preserves_db(client):
+    c, clock = client
+    oversized = c.post('/api/participants', content='x'*9000, headers={
+        'Content-Type':'application/json'
+    })
+    assert oversized.status_code == 413
+    with database.connect() as db:
+        assert db.execute('SELECT count(*) FROM study_participants').fetchone()[0] == 0
+
+
+def test_sqlite_wal_and_balanced_registration_under_load(client):
+    c, clock = client
+    # The built-in abuse limit is 30 registrations per ten minutes per client.
+    for index in range(30):
+        response = c.post('/api/participants', json={
+            'language':'nb', 'age_band':'18_24', 'gender':'prefer_not', 'consent':True
+        })
+        assert response.status_code == 201
+    with database.connect() as db:
+        counts = [db.execute('SELECT count(*) FROM study_participants WHERE group_name=?',(name,)).fetchone()[0]
+                  for name in ('A','B','C')]
+        assert counts == [10,10,10]
+        assert db.execute('PRAGMA journal_mode').fetchone()[0] == 'wal'
+
+
+def test_untrusted_cloudflare_header_does_not_bypass_rate_limit(client, monkeypatch):
+    c, clock = client
+    monkeypatch.delenv('STUDY_TRUST_CLOUDFLARE', raising=False)
+    for i in range(30):
+        r = c.post('/api/participants', headers={'CF-Connecting-IP':f'192.0.2.{i+1}'}, json={
+            'language':'en','age_band':'18_24','gender':'prefer_not','consent':True
+        })
+        assert r.status_code == 201
+    r = c.post('/api/participants', headers={'CF-Connecting-IP':'192.0.2.201'}, json={
+        'language':'en','age_band':'18_24','gender':'prefer_not','consent':True
+    })
+    assert r.status_code == 429
+
+
+def test_cloudflare_tunnel_rate_limit_keys_by_validated_ip(client, monkeypatch):
+    c, clock = client
+    monkeypatch.setenv('STUDY_TRUST_CLOUDFLARE', '1')
+    # The test client is not a trusted localhost tunnel and cannot spoof the header.
+    for i in range(30):
+        assert c.post('/api/participants', headers={'CF-Connecting-IP':f'192.0.2.{i+1}'}, json={
+            'language':'en','age_band':'18_24','gender':'prefer_not','consent':True
+        }).status_code == 201
+    assert c.post('/api/participants', headers={'CF-Connecting-IP':'198.51.100.22'}, json={
+        'language':'en','age_band':'18_24','gender':'prefer_not','consent':True
+    }).status_code == 429

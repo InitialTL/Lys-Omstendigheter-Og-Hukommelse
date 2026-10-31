@@ -148,3 +148,43 @@ i backend for API-testene.
 Svar som tidligere ble automatisk registrert som tomme, må behandles som
 **ugyldige pilotdata** i analysen; feilen kan ikke gjenskape det deltakeren
 faktisk husket. Start en ny frivillig testøkt etter kodeoppdateringen.
+
+
+## V2.2: gjennomgang av design, språk, sikkerhet og svak maskinvare
+
+Denne versjonen har fått et eget **nøkternt forskningsdesign** i
+`frontend/src/editorial.css`, responsivt layout for telefon/nettbrett/PC,
+tilgjengelige knapper og inndatafelt, skjermutsnitt for iPhone, og valg av
+brukergrensesnittspråk i alle stadier utenom selve fargetilvenningen.
+Nettleserspråket foreslås automatisk. Under forsøket forblir **språket for
+ordpar og skåring fast** selv om du endrer språket i grensesnittet.
+
+**Viktig:** Seks komplette, kontrollerbare studiespråk støttes. Les
+[docs/I18N.md](docs/I18N.md) for hvorfor ubegrenset automatisk oversettelse
+ikke kan brukes som validerte forskningsdata. Se [docs/DESIGN.md](docs/DESIGN.md)
+for designkriterier og [docs/SECURITY.md](docs/SECURITY.md) for trusselmodell,
+Cloudflare Tunnel, opprinnelsesbeskyttelse og håndtering av studiedata.
+
+En Raspberry Pi 3 skal **bare kjøre den ferdigbygde FastAPI/SQLite-serveren**,
+ikke Node, Vite eller TypeScript-kompilatoren. Bygg frontend på din PC eller i
+GitHub Actions og distribuer `frontend/dist` sammen med backend. Docker Compose
+binder tjenesten til `127.0.0.1`, bruker én prosess, read-only-filsystem og
+begrenset minne. Fysiske Pi 3-ytelsestester gjenstår.
+
+Tester:
+
+```powershell
+cd backend
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+cd ../frontend
+npm install
+npm run test:timing
+npm run test:locale
+npm run build
+```
+
+`python scripts/ui_smoke.py` kjører en full Chromium-test med en midlertidig
+SQLite-database på fire skjermstørrelser, men krever at Playwright/Chromium er
+installert. GitHub Actions gjør dette automatisk. Ingen automatiserte tester
+kan erstatte en ekte mobil- og Raspberry Pi 3-test.

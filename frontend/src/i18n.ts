@@ -4,6 +4,23 @@ export const LANGUAGE_NAMES = {
 } as const;
 export type Language = keyof typeof LANGUAGE_NAMES;
 
+/** A vetted study language is required for scoring. The UI may be switched
+ * independently without changing the language used to grade the word pairs. */
+export function detectBrowserLanguage(languages: readonly string[] = ['en']): Language {
+  for (const locale of languages) {
+    const primary = locale.toLowerCase().split(/[-_]/)[0];
+    const code = primary === 'no' || primary === 'nn' ? 'nb' : primary;
+    if (Object.prototype.hasOwnProperty.call(LANGUAGE_NAMES, code)) return code as Language;
+  }
+  return 'en';
+}
+
+/** Future vetted RTL packs use the same layout without CSS rewrites. */
+export function directionForLanguage(locale: string): 'rtl' | 'ltr' {
+  return /^(ar|he|fa|ur|ps|dv|ku)(-|$)/i.test(locale) ? 'rtl' : 'ltr';
+}
+
+
 // Each entry has Swedish, German, French and Spanish versions of the English key.
 const MESSAGES: Record<string, [string, string, string, string]> = {
   'Research study': ['Forskningsstudie','Forschungsstudie','Étude scientifique','Estudio científico'],

@@ -6,7 +6,7 @@ import {
   ShieldCheck, Sparkles, Sun, ThermometerSun,
 } from 'lucide-react';
 import { api, COLORS, storeParticipantToken, clearParticipantToken } from './api';
-import { LANGUAGE_NAMES, OS_HELP, OS_NAMES, translate } from './i18n';
+import { LANGUAGE_NAMES, OS_HELP, OS_NAMES, translate, detectBrowserLanguage, directionForLanguage } from './i18n';
 import { secondsRemaining, deadlinePassed } from './timing';
 import type { OSName } from './i18n';
 import type { Condition, Language, Pair, Registration, StudyState } from './api';
@@ -23,6 +23,22 @@ const draftKey = (id: string, index: number) => `lm_v2_draft_${id}_${index}`;
 const hiddenKey = (id: string, index: number) => `lm_v2_hidden_${id}_${index}`;
 
 type View = 'loading' | 'intro' | 'calibration' | 'study' | 'complete';
+type ChangeLanguage = (lang: Language) => void;
+
+function LanguageSwitcher({ lang, onChange, dark = false, disabled = false }: {
+  lang: Language; onChange: ChangeLanguage; dark?: boolean; disabled?: boolean;
+}) {
+  return <div className={`language-switch${dark ? ' language-switch-dark' : ''}`}>
+    <label htmlFor={dark ? 'study-language' : 'page-language'}>{translate('Språk', 'Language', lang)}</label>
+    <select id={dark ? 'study-language' : 'page-language'} aria-label={translate('Språk', 'Language', lang)}
+      disabled={disabled} title={disabled ? translate('Språket er låst under tidsstyrte deler.', 'Language is locked during timed stages.', lang) : undefined}
+      value={lang} onChange={event => onChange(event.target.value as Language)}>
+      {Object.entries(LANGUAGE_NAMES).map(([code, name]) =>
+        <option key={code} value={code}>{name}</option>)}
+    </select>
+  </div>;
+}
+
 
 function Brand({ light = false }: { light?: boolean }) {
   return <div className={`brand ${light ? 'brand-light' : ''}`}>
@@ -31,10 +47,11 @@ function Brand({ light = false }: { light?: boolean }) {
   </div>;
 }
 
-function Header({ lang, page }: { lang: Language; page?: string }) {
+function Header({ lang, page, onLanguageChange }: { lang: Language; page?: string; onLanguageChange: ChangeLanguage }) {
   return <header className="topbar">
     <Brand />
     <div className="topbar-right">
+      <LanguageSwitcher lang={lang} onChange={onLanguageChange}/>
       <span className="research-label"><span className="status-dot" /> {translate('Forskningsprosjekt', 'Research study', lang)}</span>
       {page && <span className="header-page">{page}</span>}
     </div>
@@ -49,13 +66,13 @@ function Button({ children, onClick, disabled, secondary = false, className = ''
 }
 
 function Intro({ lang, setLang, onRegister, busy, error }:
-  { lang: Language; setLang: (l: Language) => void; onRegister: (input: Registration) => void; busy: boolean; error: string | null }) {
+  { lang: Language; setLang: ChangeLanguage; onRegister: (input: Registration) => void; busy: boolean; error: string | null }) {
   const [age, setAge] = useState('16_17');
   const [gender, setGender] = useState('prefer_not');
   const [consent, setConsent] = useState(false);
   const t = (nb: string, en: string) => translate(nb, en, lang);
   return <div className="site-shell">
-    <Header lang={lang} />
+    <Header lang={lang} onLanguageChange={setLang}/>
     <main className="intro-layout">
       <div className="intro-main">
         <div className="eyebrow"><Sparkles size={15} /> {t('DIGITALT FORSKNINGSFORSØK', 'A DIGITAL RESEARCH EXPERIMENT')}</div>
@@ -78,10 +95,6 @@ function Intro({ lang, setLang, onRegister, busy, error }:
         <div className="enroll-head"><div className="enroll-icon"><Lightbulb size={22}/></div><div><span className="section-kicker">{t('DELTA I STUDIEN', 'PARTICIPATE')}</span><h2>{t('La oss begynne', 'Get started')}</h2></div></div>
         <p className="form-intro">{t('Svar på noen korte spørsmål før vi starter. Du kan når som helst trekke samtykket og slette dataene dine.',
           'Answer a few brief questions before starting. You may withdraw consent and delete your data at any time.')}</p>
-        <label className="field"><span>{t('Språk', 'Language')}</span>
-          <select value={lang} onChange={e => setLang(e.target.value as Language)}>
-            {Object.entries(LANGUAGE_NAMES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-          </select></label>
         <label className="field"><span>{t('Alder', 'Age')}</span><select value={age} onChange={event => setAge(event.target.value)}>
           <option value="16_17">16–17</option><option value="18_24">18–24</option><option value="25_44">25–44</option>
           <option value="45_plus">45+</option><option value="prefer_not">{t('Ønsker ikke å oppgi', 'Prefer not to say')}</option>
@@ -139,12 +152,12 @@ function FullscreenToggle({ lang }: { lang: Language }) {
   </div>;
 }
 
-function Calibration({ lang, onNext }: { lang: Language; onNext: () => void }) {
+function Calibration({ lang, onNext, onLanguageChange }: { lang: Language; onNext: () => void; onLanguageChange: ChangeLanguage }) {
   const [checks, setChecks] = useState([false, false, false, false]);
   const [osName, setOSName] = useState<OSName>('windows');
   const t = (nb: string, en: string) => translate(nb, en, lang);
   const toggle = (i: number) => setChecks(old => old.map((v,j) => i === j ? !v : v));
-  return <div className="site-shell"><Header lang={lang} page={t('Forberedelser', 'Preparation')}/>
+  return <div className="site-shell"><Header lang={lang} page={t('Forberedelser', 'Preparation')} onLanguageChange={onLanguageChange}/>
     <main className="calibration-layout">
       <div className="eyebrow"><Monitor size={16}/>{t('TRINN 1 AV 2', 'STEP 1 OF 2')}</div>
       <h1 className="page-title">{t('Gjør skjermen klar for forsøket', 'Prepare your screen for the study')}</h1>
@@ -205,7 +218,7 @@ function useCountdown(deadline: number | null | undefined, offsetSeconds: number
   useEffect(() => {
     const update = () => setCurrentUnixSeconds(Date.now() / 1000);
     update();
-    const timer = window.setInterval(update, 200);
+    const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
   }, []);
   return secondsRemaining(deadline, offsetSeconds, currentUnixSeconds);
@@ -346,8 +359,8 @@ function Recall({ state, seconds, offsetSeconds, lang, id, onSubmit, busy, error
   </div>;
 }
 
-function Study({ state, offsetSeconds, lang, onStart, onRefresh, onSubmit, onWithdraw, busy, error }: {
-  state: StudyState; offsetSeconds: number; lang: Language;
+function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefresh, onSubmit, onWithdraw, busy, error }: {
+  state: StudyState; offsetSeconds: number; lang: Language; onLanguageChange: ChangeLanguage;
   onStart: () => Promise<void>; onRefresh: () => Promise<void>;
   onSubmit: (answers: string[], hiddenCount: number) => Promise<void>; onWithdraw: () => Promise<void>; busy: boolean; error: string | null;
 }) {
@@ -370,6 +383,11 @@ function Study({ state, offsetSeconds, lang, onStart, onRefresh, onSubmit, onWit
     return () => { window.clearTimeout(first); window.clearInterval(interval); };
   }, [phase, seconds, onRefresh]);
   useEffect(() => {
+    const onResume = () => { if (!document.hidden && phase !== 'setup' && phase !== 'recall') void onRefresh().catch(() => undefined); };
+    document.addEventListener('visibilitychange', onResume);
+    return () => document.removeEventListener('visibilitychange', onResume);
+  }, [phase, onRefresh]);
+  useEffect(() => {
     const onVisibility = () => {
       if (document.hidden && (phase === 'acclimation' || phase === 'learning' || phase === 'distraction' || phase === 'recall')) {
         const key = hiddenKey(state.participant_id,index);
@@ -384,7 +402,7 @@ function Study({ state, offsetSeconds, lang, onStart, onRefresh, onSubmit, onWit
   return <div className="ambient" style={{'--ambient-color': COLORS[condition]} as CSSProperties}>
     <div className="ambient-overlay">
       <header className="study-header"><Brand light/>
-        <div className="study-header-right"><FullscreenToggle lang={lang}/><div className="condition-chip"><ConditionIcon condition={condition} size={17}/>{translate(label.nb, label.en, lang)}</div>
+        <div className="study-header-right"><LanguageSwitcher lang={lang} onChange={onLanguageChange} disabled={phase !== 'setup'} dark/><FullscreenToggle lang={lang}/><div className="condition-chip"><ConditionIcon condition={condition} size={17}/>{translate(label.nb, label.en, lang)}</div>
           <div className="round-chip">{translate('RUNDE', 'ROUND', lang)} {index + 1}/3</div></div>
       </header>
       <div className="ambient-content">
@@ -404,9 +422,9 @@ function Study({ state, offsetSeconds, lang, onStart, onRefresh, onSubmit, onWit
   </div>;
 }
 
-function Complete({ lang, onWithdraw, error }: { lang: Language; onWithdraw: () => Promise<void>; error: string | null }) {
+function Complete({ lang, onLanguageChange, onWithdraw, error }: { lang: Language; onLanguageChange: ChangeLanguage; onWithdraw: () => Promise<void>; error: string | null }) {
   const t = (nb: string, en: string) => translate(nb, en, lang);
-  return <div className="site-shell"><Header lang={lang}/>
+  return <div className="site-shell"><Header lang={lang} onLanguageChange={onLanguageChange}/>
     <main className="complete-wrap"><div className="complete-icon"><Check size={40}/></div>
       <div className="eyebrow"><Sparkles size={15}/>{t('FORSØK FULLFØRT', 'STUDY COMPLETED')}</div>
       <h1>{t('Takk for at du deltok!', 'Thank you for participating!')}</h1>
@@ -423,7 +441,7 @@ function Complete({ lang, onWithdraw, error }: { lang: Language; onWithdraw: () 
 export default function App() {
   const [lang, setLangState] = useState<Language>(() => {
     const stored = localStorage.getItem(LANGUAGE_KEY);
-    return stored && Object.hasOwn(LANGUAGE_NAMES, stored) ? stored as Language : 'nb';
+    return stored && Object.hasOwn(LANGUAGE_NAMES, stored) ? stored as Language : detectBrowserLanguage(navigator.languages);
   });
   const [id, setId] = useState<string | null>(() => localStorage.getItem(PARTICIPANT_KEY));
   const [view, setView] = useState<View>(() => localStorage.getItem(PARTICIPANT_KEY) ? 'loading' : 'intro');
@@ -431,14 +449,14 @@ export default function App() {
   const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const setLang = (next: Language) => { setLangState(next); document.documentElement.lang = next; localStorage.setItem(LANGUAGE_KEY, next); };
-  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+  const setLang = (next: Language) => { setLangState(next); document.documentElement.lang = next; document.documentElement.dir = directionForLanguage(next); localStorage.setItem(LANGUAGE_KEY, next); };
+  useEffect(() => { document.documentElement.lang = lang; document.documentElement.dir = directionForLanguage(lang); }, [lang]);
 
   const getState = useCallback(async (participantID: string) => {
     const data = await api.next(participantID);
     setOffset(data.server_now - Date.now() / 1000);
     setState(data);
-    setLangState(data.language);
+    // UI language is independent from the fixed, graded language of a running study.
     if (data.finished) setView('complete');
     else if (localStorage.getItem(CALIBRATED_KEY) !== participantID) setView('calibration');
     else setView('study');
@@ -526,10 +544,10 @@ export default function App() {
     </>}
   </div>;
   if (view === 'intro') return <Intro lang={lang} setLang={setLang} onRegister={register} busy={busy} error={error}/>;
-  if (view === 'calibration') return <Calibration lang={lang} onNext={() => {
+  if (view === 'calibration') return <Calibration lang={lang} onLanguageChange={setLang} onNext={() => {
     if(id) {localStorage.setItem(CALIBRATED_KEY,id); setView('study'); }
   }}/>
-  if (view === 'complete') return <Complete lang={lang} onWithdraw={withdraw} error={error}/>;
+  if (view === 'complete') return <Complete lang={lang} onLanguageChange={setLang} onWithdraw={withdraw} error={error}/>;
   if (!state || !id) return null;
-  return <Study state={state} lang={lang} offsetSeconds={offset} onStart={start} onRefresh={refresh} onSubmit={submit} onWithdraw={withdraw} busy={busy} error={error}/>;
+  return <Study state={state} lang={lang} onLanguageChange={setLang} offsetSeconds={offset} onStart={start} onRefresh={refresh} onSubmit={submit} onWithdraw={withdraw} busy={busy} error={error}/>;
 }

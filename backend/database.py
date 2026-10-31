@@ -29,12 +29,19 @@ def connect() -> sqlite3.Connection:
     connection = sqlite3.connect(DB_PATH, timeout=15)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys=ON")
+    connection.execute("PRAGMA busy_timeout=15000")
+    connection.execute("PRAGMA cache_size=-2048")  # Limit per-connection cache to about 2 MiB.
+    connection.execute("PRAGMA wal_autocheckpoint=100")
     return connection
 
 
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with connect() as db:
+        # WAL permits a reader to run while results are inserted. One worker is
+        # sufficient on a Pi 3; checkpoints bound the write-ahead log size.
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("PRAGMA synchronous=NORMAL")
         db.executescript("""
             CREATE TABLE IF NOT EXISTS study_participants (
                 id TEXT PRIMARY KEY,
