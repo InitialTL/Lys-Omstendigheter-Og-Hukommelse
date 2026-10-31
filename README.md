@@ -1,0 +1,123 @@
+# Hukommelse LM — versjon 2.0
+
+En komplett **React + TypeScript / FastAPI / SQLite**-app for et fjernbasert pilotforsøk om hvorvidt varme, kalde og mørke **skjermbakgrunner** påvirker læring av nye ordassosiasjoner. Nettsiden er på norsk og engelsk og har responsivt design.
+
+> **Forskningspresisjon:** Dette er et forsøk med presise **sRGB/HEX-verdier**, ikke en kalibrert måling av 3000 K, 10000 K, lux eller lys som når netthinnen. Svart bakgrunn gir mye lavere lysmengde enn fargebakgrunnene. Den forskjellen må omtales som en begrensning i rapporten. Dette er en teknisk komplett pilot, men **ikke** en ferdig vitenskapelig validert metode eller automatisk godkjent for offentlig forskning.
+
+## Funksjoner
+
+- Registrering: språk (norsk/engelsk), aldersgruppe, valgfritt kjønn og eksplisitt samtykke.
+- Lokal lagring av deltaker-ID, valgt språk og ufullstendige svar for gjenopptakelse.
+- Enkel kalibreringsveiledning: mørkt rom, konstant skjermlysstyrke, fargejustering av, fullskjerm og kontrastkontroll.
+- Tre bakgrunnsfarger: `WARM #D9AA91`, `COOL #9BB6E4`, `DARK #080B11`.
+- Gruppefordeling A/B/C med motbalansert lysrekkefølge, pluss seks motbalanserte ordliste-rekkefølger **innen hver gruppe**.
+- Hver runde: 15 sekunder tilvenning, 60 sekunder memorering, 30 sekunder regnedistraksjon og maks 120 sekunder fri gjenhenting.
+- Tidsgrenser fra serveren: en refresh nullstiller ikke memoreringstiden; fasen oppdateres etter serverklokken.
+- 3 × 10 håndlagde, unike kunstige ord med fysiske objekter som fasit, på norsk og engelsk.
+- Scoring og fasit bare på serveren, SQLite-lagring av resultater, tidsbruk og antall ganger fanen ble skjult.
+- Sikker CSV-eksport med lokal kommandolinje eller et beskyttet administrasjonsendepunkt.
+- Tilbaketrekking av samtykke: deltakeren kan slette alle sine **nye** studiedata via nettsiden.
+- **Ingen av de gamle `participants`- eller `experiment_results`-tabellene blir endret eller slettet.**
+
+## Slik starter du lokalt (Windows PowerShell)
+
+Krever Python 3.10+ og Node.js 20.19+ eller 22.12+. I **to terminaler**:
+
+**Terminal 1 — backend**
+
+```powershell
+cd backend
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
+```
+
+**Terminal 2 — frontend**
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Åpne `http://127.0.0.1:5173` i nettleseren. Vite sender `/api` videre til FastAPI. API-status kan sjekkes på `http://127.0.0.1:8000/api/health`.
+
+**Linux/macOS:** Opprett miljø med `python3 -m venv .venv`, aktiver med `source .venv/bin/activate` og bruk `python -m uvicorn ...`.
+
+### Starte fra én port etter frontend-bygg
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ../backend
+python -m uvicorn server:app --host 127.0.0.1 --port 8000
+```
+
+Når `frontend/dist` finnes, serverer FastAPI den ferdige nettsiden fra `http://127.0.0.1:8000/`. For offentlig publisering må dette settes bak en HTTPS-reverse proxy / egnet host. Ikke eksponer en utviklingsserver med `--reload` på internett.
+
+## Oppdater ditt eksisterende GitHub-prosjekt
+
+1. **Ta en kopi av din eksisterende `backend/results.db`** før du overskriver kode.
+2. Pakk ut denne prosjektmappen og kopier innholdet inn i ditt eksisterende Git-repositorium. Erstatt den gamle `frontend/`-koden og gamle Python-filer du ikke lenger trenger, men **ikke** overskriv eller slett `backend/results.db`.
+3. Den nye `database.init_db()` oppretter nye tabeller: `study_participants`, `study_rounds`, `study_results`. Gamle resultater ligger urørt i sine gamle tabeller.
+4. Prøv forsøket lokalt først. Kjør testene og gjennomfør alle tre rundene.
+5. Når alt virker: `git add .`, `git commit -m "Build vocabulary and screen-color study v2"`, `git push`.
+
+Av sikkerhetsgrunner ignoreres lokale databaser (`*.db`) og hemmeligheter (`.env`) av `.gitignore`. Ikke committ deltakerdata på GitHub.
+
+## Docker (alternativ)
+
+For en enklere serverinstallasjon med persistent datavolum kan prosjektet bygges med Docker. Applikasjonen blir da tilgjengelig **bare lokalt** på `127.0.0.1:8000`. Sett opp en ekstern HTTPS-reverse proxy dersom den skal nås offentlig.
+
+```bash
+docker compose up --build -d
+```
+
+Databasen lagres i Docker-volumet `study-data`; ta backup før du fjerner volumet. Docker importerer **ikke automatisk** en tidligere `backend/results.db`. For å bevare eldre data, kjør den lokale løsningen eller migrer kopien inn i volumet selv.
+
+## Teste backend
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+## CSV-eksport og analyse
+
+Direkte fra backend-mappen:
+
+```bash
+python export_cli.py study_results.csv
+```
+
+Du kan også konfigurere en hemmelig eksportnøkkel som miljøvariabel:
+
+```powershell
+$env:STUDY_ADMIN_TOKEN = "velg-en-tilfeldig-lang-hemmelig-verdi"
+```
+
+Deretter sende `GET /api/admin/export.csv` med HTTP-headeren `X-Admin-Token`. **Aldri** legg nøkkelen inn i frontend-koden, GitHub eller i URL-adressen.
+
+For et raskt lokalt sammendrag kan du også kjøre `python analyze_cli.py` i backend-mappen.
+
+Exporten inneholder pseudonyme UUID-er, språk, alder, ev. kjønn, gruppe, ordliste, lysforhold, svar, poengsummer, tidsbruk og faneskjulinger. Spred ikke rådata offentlig; aggreger resultater først.
+
+## Forskning og personvern
+
+Les [docs/PROTOCOL.md](docs/PROTOCOL.md) før du rekrutterer deltakere. Dette er en pilot. Du må gjennomføre en separat pilot for å undersøke ordlistenes vanskelighetsgrad, lesehastighet, språkforskjeller, tak-/gulveffekter og skjermfargenes luminans. Planlegg statistikken før datainnsamling. Avklar samtykkekrav, personvern og eventuelle krav til foresatte eller skole før rekruttering av mindreårige.
+
+Den nye løsningen inkluderer **ikke Google Translate API**. Oversettelsene av de 30 objektene er gjennomgåtte, faste norske og engelske ord. Dette gjør at resultatene ikke avhenger av ustabile oversettelser, Google-kostnader eller en ekstern API-nøkkel. Nye språk må kvalitetssikres separat før de brukes.
+
+### Viktige begrensninger
+
+- En nettside kan **ikke** stille inn fysisk skjermlysstyrke eller måle lux, spektrum eller faktisk korrelert fargetemperatur.
+- Skjermkalibrering er en sjekkliste, ikke måleutstyr. Ulike paneler, nattmodus, romlys og øyeavstand gir usikkerhet.
+- To fargede forhold er valgt til omtrent lik **beregnet sRGB-relativ luminans**. Dette tilsvarer ikke lik målt lysmengde på forskjellige skjermer.
+- Den mørke betingelsen har med vilje lavere luminans og blander derfor effektene av lysmengde og farge.
+- Ordparene er **ikke psykometrisk validert**. De er utgangspunkt for en pilot og bør testes for vanskelighetsgrad.
+- Fullskjerm kan avvises av nettleseren. Avbrutt/flyttet nettleserfane registreres grovt, men dette er ikke juksesikring.
+- Offentlig publisering krever ekstern hosting med HTTPS, backup, sikker konfigurasjon, rate limiting og gjennomgang av personvern. Ingen data sendes til en tredjeparts oversettelsestjeneste.
+

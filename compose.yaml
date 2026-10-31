@@ -1,0 +1,13 @@
+services:
+  hukommelse-lm:
+    build: .
+    ports:
+      - '127.0.0.1:8000:8000'
+    environment:
+      STUDY_DATABASE: /data/results.db
+      STUDY_ADMIN_TOKEN: ${STUDY_ADMIN_TOKEN:-}
+    volumes:
+      - study-data:/data
+    restart: unless-stopped
+volumes:
+  study-data:
