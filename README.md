@@ -188,3 +188,18 @@ npm run build
 SQLite-database på fire skjermstørrelser, men krever at Playwright/Chromium er
 installert. GitHub Actions gjør dette automatisk. Ingen automatiserte tester
 kan erstatte en ekte mobil- og Raspberry Pi 3-test.
+
+
+### Kontrollert i CI for versjon 2.2
+
+GitHub Actions bygger TypeScript/Vite og kjører backend-tester, nedtellingstester,
+språktester og ekte Chromium-integrasjonstest på **320×640, 390×844,
+768×1024 og 1280×850**. Nettlesertesten kontrollerer hele første runde,
+inkludert at svarskjermen ikke forsvinner for tidlig, at et svar lagres, og
+at siden ikke har horisontal overflyt på teststørrelsene. Testsuiten bruker
+midlertidig SQLite-database og endrer ikke ekte deltakerdata.
+
+Både Cloudflare-konfigurasjon og skikkelig belastning på en **fysisk Raspberry
+Pi 3** må fortsatt verifiseres på den faktiske maskinen. Bygg og testing
+garanterer ikke at alle nettlesere, operativsystemer og skjermstørrelser er
+feilfrie, eller at løsningen er immune mot angrep.

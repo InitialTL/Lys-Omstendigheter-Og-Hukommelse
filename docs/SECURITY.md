@@ -43,10 +43,11 @@ Never put the admin token in browser JavaScript, Git, screenshots, URLs or logs.
   API requests without caches, no external JS or trackers.
 * Content Security Policy for the production SPA, clickjacking prevention,
   MIME sniffing prevention, restrictive browser permissions.
-* API JSON payloads are capped via the `Content-Length` header. **Additionally
-  enforce a request-body limit (8–16 KiB) and request timeouts on Cloudflare
-  or your reverse proxy**, including chunked requests; Content-Length checks
-  cannot bound body bytes sent without that header.
+* API JSON bodies are capped at 8 KiB: the origin checks `Content-Length` and
+  independently stops reading streamed/chunked bodies that exceed the cap.
+  **Additionally enforce rate limits, request size and timeouts at Cloudflare
+  or a reverse proxy**; an attacker can still exhaust slow connections before
+  an application-level parser gets control.
 * Registration rate limit is per process and per client IP (30 in 10 minutes).
   This is only a supplementary control; add Cloudflare WAF/bot rules and overall
   rate limiting. Do not treat it as DoS protection.

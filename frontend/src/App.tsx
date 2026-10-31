@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import {
   ArrowRight, Brain, Check, CheckCircle2, Clock3, Eye,
   Focus, Lightbulb, LockKeyhole, Monitor, Moon, RefreshCw, Maximize, Minimize, VolumeX,
-  ShieldCheck, Sparkles, Sun, ThermometerSun,
+  ShieldCheck, Sun, ThermometerSun,
 } from 'lucide-react';
 import { api, COLORS, storeParticipantToken, clearParticipantToken } from './api';
 import { LANGUAGE_NAMES, OS_HELP, OS_NAMES, translate, detectBrowserLanguage, directionForLanguage } from './i18n';
@@ -75,7 +75,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
     <Header lang={lang} onLanguageChange={setLang}/>
     <main className="intro-layout">
       <div className="intro-main">
-        <div className="eyebrow"><Sparkles size={15} /> {t('DIGITALT FORSKNINGSFORSØK', 'A DIGITAL RESEARCH EXPERIMENT')}</div>
+        <div className="eyebrow"><span aria-hidden="true">LM / 02</span> {t('DIGITALT FORSKNINGSFORSØK', 'A DIGITAL RESEARCH EXPERIMENT')}</div>
         <h1>{t('Kan fargene rundt oss', 'Can the colors around us')}<br /><em>{t('påvirke hukommelsen?', 'affect our memory?')}</em></h1>
         <p className="hero-sub">{t('Bli med på et kort forskningsforsøk der vi undersøker om varme, kalde og mørke skjermmiljøer påvirker hvor lett vi lærer nye ord.',
           'Join a short research study exploring whether warm, cool and dark screen environments affect how easily we learn new words.')}</p>
@@ -123,7 +123,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
 
 function LayersIcon() { return <div className="layers-icon"><span/><span/><span/></div>; }
 function Footer({ lang }: { lang: Language }) {
-  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.0</span></footer>;
+  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.2</span></footer>;
 }
 
 function FullscreenToggle({ lang }: { lang: Language }) {
@@ -426,7 +426,7 @@ function Complete({ lang, onLanguageChange, onWithdraw, error }: { lang: Languag
   const t = (nb: string, en: string) => translate(nb, en, lang);
   return <div className="site-shell"><Header lang={lang} onLanguageChange={onLanguageChange}/>
     <main className="complete-wrap"><div className="complete-icon"><Check size={40}/></div>
-      <div className="eyebrow"><Sparkles size={15}/>{t('FORSØK FULLFØRT', 'STUDY COMPLETED')}</div>
+      <div className="eyebrow"><span aria-hidden="true">LM / 02</span>{t('FORSØK FULLFØRT', 'STUDY COMPLETED')}</div>
       <h1>{t('Takk for at du deltok!', 'Thank you for participating!')}</h1>
       <p>{t('Du har fullført alle tre rundene. Svarene dine er lagret og bidrar til prosjektets datagrunnlag.',
         'You have completed all three rounds. Your answers have been saved and contribute to this study.')}</p>

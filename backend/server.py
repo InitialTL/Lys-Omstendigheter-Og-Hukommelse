@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.routing import APIRoute
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -31,6 +32,32 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=_hosts)
 # API requests only contain tiny JSON payloads. Reject oversized bodies at
 # the origin as well as at the reverse proxy (see deployment guide).
 MAX_API_BODY = 8192
+
+
+class LimitedJSONRoute(APIRoute):
+    """Bound actual streamed bytes, including chunked requests with no length."""
+
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def bounded(request: Request):
+            if request.url.path.startswith('/api/') and request.method not in ('GET', 'HEAD'):
+                chunks = []
+                total = 0
+                async for chunk in request.stream():
+                    total += len(chunk)
+                    if total > MAX_API_BODY:
+                        raise HTTPException(status_code=413, detail='Request is too large')
+                    chunks.append(chunk)
+                # Starlette/FastAPI reads request.body() during validation; after
+                # consuming the bounded stream, supply the same bytes from RAM.
+                request._body = b''.join(chunks)
+            return await original(request)
+
+        return bounded
+
+
+app.router.route_class = LimitedJSONRoute
 _dev_origins = {"http://localhost:5173", "http://127.0.0.1:5173",
                 "http://localhost:8000", "http://127.0.0.1:8000"}
 _allowed_origins = _dev_origins | {

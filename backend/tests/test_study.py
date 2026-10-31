@@ -359,3 +359,11 @@ def test_cloudflare_tunnel_rate_limit_keys_by_validated_ip(client, monkeypatch):
     assert c.post('/api/participants', headers={'CF-Connecting-IP':'198.51.100.22'}, json={
         'language':'en','age_band':'18_24','gender':'prefer_not','consent':True
     }).status_code == 429
+
+
+def test_reject_streamed_oversized_body_without_content_length(client):
+    c, clock = client
+    streamed = (part for part in (b'{"language":"en",', b' '*9000, b'}'))
+    response = c.post('/api/participants', content=streamed,
+                      headers={'Content-Type':'application/json'})
+    assert response.status_code == 413, response.text
