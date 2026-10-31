@@ -21,6 +21,7 @@ const LABELS: Record<Condition, { nb: string; en: string; descriptionNb: string;
 };
 const draftKey = (id: string, index: number) => `lm_v2_draft_${id}_${index}`;
 const hiddenKey = (id: string, index: number) => `lm_v2_hidden_${id}_${index}`;
+const mathKey = (id: string, index: number) => `lm_v23_math_${id}_${index}`;
 
 type View = 'loading' | 'intro' | 'calibration' | 'study' | 'complete';
 type ChangeLanguage = (lang: Language) => void;
@@ -31,7 +32,7 @@ function LanguageSwitcher({ lang, onChange, dark = false, disabled = false }: {
   return <div className={`language-switch${dark ? ' language-switch-dark' : ''}`}>
     <label htmlFor={dark ? 'study-language' : 'page-language'}>{translate('Språk', 'Language', lang)}</label>
     <select id={dark ? 'study-language' : 'page-language'} aria-label={translate('Språk', 'Language', lang)}
-      disabled={disabled} title={disabled ? translate('Språket er låst under tidsstyrte deler.', 'Language is locked during timed stages.', lang) : undefined}
+      disabled={disabled} title={disabled ? translate('Språket er låst etter registrering for å sikre riktig skåring.', 'The study language is fixed after registration to ensure correct scoring.', lang) : undefined}
       value={lang} onChange={event => onChange(event.target.value as Language)}>
       {Object.entries(LANGUAGE_NAMES).map(([code, name]) =>
         <option key={code} value={code}>{name}</option>)}
@@ -75,19 +76,19 @@ function Intro({ lang, setLang, onRegister, busy, error }:
     <Header lang={lang} onLanguageChange={setLang}/>
     <main className="intro-layout">
       <div className="intro-main">
-        <div className="eyebrow"><span aria-hidden="true">LM / 02</span> {t('DIGITALT FORSKNINGSFORSØK', 'A DIGITAL RESEARCH EXPERIMENT')}</div>
+        <div className="eyebrow"><span aria-hidden="true">LM / 03</span> {t('DIGITALT FORSKNINGSFORSØK', 'A DIGITAL RESEARCH EXPERIMENT')}</div>
         <h1>{t('Kan fargene rundt oss', 'Can the colors around us')}<br /><em>{t('påvirke hukommelsen?', 'affect our memory?')}</em></h1>
         <p className="hero-sub">{t('Bli med på et kort forskningsforsøk der vi undersøker om varme, kalde og mørke skjermmiljøer påvirker hvor lett vi lærer nye ord.',
           'Join a short research study exploring whether warm, cool and dark screen environments affect how easily we learn new words.')}</p>
         <div className="stats-strip">
-          <div><Clock3 size={21}/><strong>10–15</strong><span>{t('minutter', 'minutes')}</span></div>
+          <div><Clock3 size={21}/><strong>15–18</strong><span>{t('minutter', 'minutes')}</span></div>
           <div><LayersIcon/><strong>3</strong><span>{t('runder', 'rounds')}</span></div>
           <div><LockKeyhole size={21}/><strong>{t('Ingen navn', 'No names')}</strong><span>{t('registreres', 'recorded')}</span></div>
         </div>
         <div className="process-preview">
           <div className="section-kicker">{t('SLIK FUNGERER DET', 'HOW IT WORKS')}</div>
           <div className="process-row"><span className="process-num">01</span><div><b>{t('Juster skjermen', 'Prepare your screen')}</b><small>{t('En enkel sjekkliste før forsøket starter', 'A simple checklist before beginning')}</small></div><Monitor size={19}/></div>
-          <div className="process-row"><span className="process-num">02</span><div><b>{t('Lær 10 ordpar', 'Learn 10 word pairs')}</b><small>{t('Du får 60 sekunder til å memorere', 'You have 60 seconds to memorize')}</small></div><Brain size={19}/></div>
+          <div className="process-row"><span className="process-num">02</span><div><b>{t('Lær 8 ordpar', 'Learn 8 word pairs')}</b><small>{t('Du får 75 sekunder til å memorere', 'You have 75 seconds to memorize')}</small></div><Brain size={19}/></div>
           <div className="process-row"><span className="process-num">03</span><div><b>{t('Test hukommelsen', 'Test your memory')}</b><small>{t('En kort distraksjon før du skriver svarene', 'A short distraction before you recall the answers')}</small></div><CheckCircle2 size={19}/></div>
         </div>
       </div>
@@ -105,6 +106,9 @@ function Intro({ lang, setLang, onRegister, busy, error }:
           <option value="nonbinary">{t('Ikke-binær', 'Non-binary')}</option>
           <option value="other">{t('Annet', 'Other')}</option>
         </select></label>
+        {!['nb','en','sv','de','fr','es'].includes(lang) &&
+          <p className="locale-disclosure">{t('Språket for ordtesten er valgt. Veiledningen vises foreløpig på engelsk.',
+            'Your word-test language is selected. Some instructions currently appear in English.')}</p>}
         <label className="consent-control"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/>
           <span>{t('Jeg deltar frivillig og samtykker til at aldersgruppe, eventuelt kjønn, språk og testresultater lagres med en tilfeldig deltaker-ID for forskning. Ingen navn eller e-postadresser samles inn.',
             'I participate voluntarily and agree that my age range, optional gender, language and test results are stored under a random participant ID for research. No names or email addresses are collected.')}</span>
@@ -114,7 +118,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
         <Button disabled={!consent || busy} className="fullwidth" onClick={() => onRegister({ language: lang, age_band: age, gender, consent: true })}>
           {busy ? t('Registrerer …', 'Registering…') : t('Start forsøket', 'Begin experiment')} <ArrowRight size={18}/>
         </Button>
-        <div className="enroll-footer"><span className="status-dot" /> {t('Tar omtrent 10–15 minutter', 'Approximately 10–15 minutes')}</div>
+        <div className="enroll-footer"><span className="status-dot" /> {t('Tar omtrent 15–18 minutter', 'Approximately 15–18 minutes')}</div>
       </aside>
     </main>
     <Footer lang={lang}/>
@@ -123,7 +127,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
 
 function LayersIcon() { return <div className="layers-icon"><span/><span/><span/></div>; }
 function Footer({ lang }: { lang: Language }) {
-  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.2</span></footer>;
+  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.3</span></footer>;
 }
 
 function FullscreenToggle({ lang }: { lang: Language }) {
@@ -192,7 +196,7 @@ function Calibration({ lang, onNext, onLanguageChange }: { lang: Language; onNex
               {OS_NAMES.map(os => <option key={os} value={os}>{({windows:'Windows',macos:'macOS',linux:'Linux',ios:'iOS / iPadOS',android:'Android',external:'External monitor / TV'} as Record<OSName,string>)[os]}</option>)}
             </select>
             <b>{t('Slik endrer du skjermlysstyrken', 'How to change brightness')}</b>
-            <p>{OS_HELP[osName][lang]}</p>
+            <p>{OS_HELP[osName][lang] ?? OS_HELP[osName].en}</p>
           </div>
         </div>
       </div>
@@ -243,6 +247,7 @@ function Setup({ condition, index, lang, onStart, busy }: {
     <div className={`light-orb light-orb-${condition.toLowerCase()}`}><ConditionIcon condition={condition} size={38}/></div>
     <h1>{t(label.nb, label.en)}</h1>
     <p>{t(label.descriptionNb, label.descriptionEn)} · {COLORS[condition]}</p>
+    {index > 0 && <p className="between-round">{t('Forrige runde er lagret. Takk for innsatsen så langt.', 'Your previous round was saved. Thank you for continuing.')}</p>}
     <div className="instruction-card"><div className="instruction-icon"><Focus size={22}/></div><div>
       <b>{t('Se på skjermen og venn deg til fargen', 'Look at the screen and adapt to the color')}</b>
       <span>{t('I 60 sekunder ser du bare en farge og en nedtelling. Ikke endre skjermens lysstyrke.',
@@ -267,13 +272,13 @@ function Learning({ pairs, seconds, lang }: { pairs: Pair[]; seconds: number; la
   const t = (nb: string, en: string) => translate(nb, en, lang);
   return <div className="phase-main"><div className="phase-tag"><Brain size={16}/>{t('MEMORERING', 'MEMORIZATION')}</div>
     <h1>{t('Husk disse ordparene', 'Remember these word pairs')}</h1>
-    <p>{t('Du har 60 sekunder. Prøv å huske hvilket objekt hvert kunstig ord betyr.',
-      'You have 60 seconds. Try to remember which object each invented word represents.')}</p>
+    <p>{t('Du har 75 sekunder til å lære åtte ordpar. Det er helt greit å ikke huske alle. Rekkefølgen blir endret i testen.',
+      'You have 75 seconds to learn eight pairs. It is okay not to remember every one. The order will change in the test.')}</p>
     <div className="pairs-grid">{pairs.map((pair, idx) => <div className="pair-tile" key={pair.word}>
       <span className="pair-number">{String(idx + 1).padStart(2,'0')}</span><b>{pair.word}</b><span className="pair-arrow">→</span><span>{pair.meaning}</span>
     </div>)}</div>
     <div className="no-notes"><Eye size={17}/>{t('Unngå å skrive ned eller ta bilde av ordene.', 'Do not write down or photograph the word pairs.')}</div>
-    <Clock seconds={seconds} total={60} lang={lang}/>
+    <Clock seconds={seconds} total={75} lang={lang}/>
   </div>;
 }
 
@@ -283,16 +288,27 @@ function newProblem(): Problem {
   const b = 8 + Math.floor(Math.random() * 27);
   return { a, b, correct: a + b };
 }
-function Distraction({ seconds, lang }: { seconds: number; lang: Language }) {
+function Distraction({ seconds, lang, id, index }: { seconds: number; lang: Language; id: string; index: number }) {
   const [question, setQuestion] = useState<Problem>(newProblem);
   const [value, setValue] = useState('');
-  const [correct, setCorrect] = useState(0);
-  const [attempts, setAttempts] = useState(0);
+  const [stats, setStats] = useState<{attempts: number; correct: number}>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(mathKey(id,index)) || '{}');
+      const attempts = Number(saved.attempts);
+      const correct = Number(saved.correct);
+      if (Number.isSafeInteger(attempts) && Number.isSafeInteger(correct) &&
+          attempts >= 0 && attempts <= 100 && correct >= 0 && correct <= attempts)
+        return {attempts, correct};
+    } catch { /* storage is optional */ }
+    return {attempts:0, correct:0};
+  });
   const t = (nb: string, en: string) => translate(nb, en, lang);
   const answer = () => {
     if (!value.trim()) return;
-    setAttempts(v => v + 1);
-    if (Number(value) === question.correct) setCorrect(v => v + 1);
+    const next = {attempts:Math.min(100,stats.attempts + 1),
+                  correct:Math.min(100,stats.correct + (Number(value) === question.correct ? 1 : 0))};
+    setStats(next);
+    localStorage.setItem(mathKey(id,index), JSON.stringify(next));
     setQuestion(newProblem()); setValue('');
   };
   return <div className="phase-main distraction-main"><div className="phase-tag"><Focus size={16}/>{t('DISTRAKSJONSOPPGAVE', 'DISTRACTION TASK')}</div>
@@ -303,7 +319,7 @@ function Distraction({ seconds, lang }: { seconds: number; lang: Language }) {
       <form onSubmit={event => {event.preventDefault(); answer();}} className="math-form">
         <input aria-label={t('Svaret ditt', 'Your answer')} type="number" inputMode="numeric" value={value} onChange={event=>setValue(event.target.value)} placeholder={t('Ditt svar','Your answer')}/>
         <Button type="submit">{t('Svar', 'Submit')} <ArrowRight size={17}/></Button>
-      </form><small>{t('Oppgaver besvart', 'Problems attempted')}: {attempts} · {t('Riktig', 'Correct')}: {correct}</small>
+      </form><small>{t('Oppgaver besvart', 'Problems attempted')}: {stats.attempts} · {t('Riktig', 'Correct')}: {stats.correct}</small>
     </div><Clock seconds={seconds} total={30} lang={lang}/>
   </div>;
 }
@@ -318,15 +334,15 @@ function Recall({ state, seconds, offsetSeconds, lang, id, onSubmit, busy, error
   const [answers, setAnswers] = useState<string[]>(() => {
     try {
       const old = JSON.parse(localStorage.getItem(draftKey(id,index)) || 'null');
-      return Array.isArray(old) && old.length === 10 ? old : Array(10).fill('');
-    } catch { return Array(10).fill(''); }
+      return Array.isArray(old) && old.length === 8 ? old : Array(8).fill('');
+    } catch { return Array(8).fill(''); }
   });
   const submitted = useRef(false);
   const autoAttempted = useRef(false);
   const t = (nb: string, en: string) => translate(nb, en, lang);
   useEffect(() => { localStorage.setItem(draftKey(id,index), JSON.stringify(answers)); }, [answers, id, index]);
   const submit = useCallback(async () => {
-    if (submitted.current || busy || words.length !== 10) return;
+    if (submitted.current || busy || words.length !== 8) return;
     submitted.current = true;
     try { await onSubmit(answers, Number(localStorage.getItem(hiddenKey(id,index)) || '0')); }
     catch { submitted.current = false; }
@@ -341,8 +357,8 @@ function Recall({ state, seconds, offsetSeconds, lang, id, onSubmit, busy, error
   }, [seconds, busy, submit, words.length, state.phase_end_at, offsetSeconds]);
   return <div className="phase-main recall-main"><div className="phase-tag"><CheckCircle2 size={16}/>{t('HUKOMMELSESTEST', 'RECALL TEST')}</div>
     <h1>{t('Hva betyr ordene?', 'What do these words mean?')}</h1>
-    <p>{t('Skriv objektet du husker for hvert ord. Hvis du ikke husker, lar du feltet stå tomt.',
-      'Type the object you remember for each word. Leave an answer blank if you do not remember.')}</p>
+    <p>{t('Ordene er nå stokket om. Skriv det du husker, og la resten stå tomt. Du får se fasiten etter siste runde.',
+      'The order is shuffled. Enter what you remember and leave the rest blank. You can review the answers after all three rounds.')}</p>
     <div className="answers-grid">{words.map((word,i) => <label className="answer-field" key={word}>
       <span><small>{String(i+1).padStart(2,'0')}</small><b>{word}</b></span>
       <input maxLength={80} autoComplete="off" spellCheck={false} value={answers[i] || ''}
@@ -352,7 +368,7 @@ function Recall({ state, seconds, offsetSeconds, lang, id, onSubmit, busy, error
     </label>)}</div>
     {error && <div className="error-banner" role="alert">{error}</div>}
     <div className="recall-footer"><div className="recall-clock"><Clock seconds={seconds} total={120} lang={lang}/></div>
-      <Button disabled={busy || words.length !== 10} onClick={() => void submit()}>
+      <Button disabled={busy || words.length !== 8} onClick={() => void submit()}>
         {busy ? t('Lagrer …', 'Saving…') : t('Lever svarene', 'Submit answers')} <ArrowRight size={17}/>
       </Button>
     </div><p className="submit-note">{t('Svarene sendes automatisk når tiden går ut.', 'Answers are submitted automatically when time runs out.')}</p>
@@ -402,14 +418,14 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefres
   return <div className="ambient" style={{'--ambient-color': COLORS[condition]} as CSSProperties}>
     <div className="ambient-overlay">
       <header className="study-header"><Brand light/>
-        <div className="study-header-right"><LanguageSwitcher lang={lang} onChange={onLanguageChange} disabled={phase !== 'setup'} dark/><FullscreenToggle lang={lang}/><div className="condition-chip"><ConditionIcon condition={condition} size={17}/>{translate(label.nb, label.en, lang)}</div>
+        <div className="study-header-right"><LanguageSwitcher lang={lang} onChange={onLanguageChange} disabled dark/><FullscreenToggle lang={lang}/><div className="condition-chip"><ConditionIcon condition={condition} size={17}/>{translate(label.nb, label.en, lang)}</div>
           <div className="round-chip">{translate('RUNDE', 'ROUND', lang)} {index + 1}/3</div></div>
       </header>
       <div className="ambient-content">
-        <div className="study-card"><div className="study-card-top"><div className="research-index">LM / RESEARCH PROTOCOL 002</div><ConditionDots current={index}/></div>
+        <div className="study-card"><div className="study-card-top"><div className="research-index">{translate('Hukommelsesstudie', 'Memory study', lang)}</div><ConditionDots current={index}/></div>
           {phase === 'setup' ? <Setup key={index} condition={condition} index={index} lang={lang} onStart={onStart} busy={busy}/> :
            phase === 'learning' ? <Learning pairs={state.pairs ?? []} seconds={seconds} lang={lang}/> :
-           phase === 'distraction' ? <Distraction key={index} seconds={seconds} lang={lang}/> :
+           phase === 'distraction' ? <Distraction key={index} seconds={seconds} lang={lang} id={state.participant_id} index={index}/> :
            <Recall key={index} id={state.participant_id} state={state} seconds={seconds} offsetSeconds={offsetSeconds} lang={lang} onSubmit={onSubmit} busy={busy} error={error}/>}
           {error && phase !== 'recall' && <div className="error-banner" role="alert">{error}<button onClick={()=>void onRefresh()}><RefreshCw size={15}/> {lang==='nb'?'Prøv igjen':'Retry'}</button></div>}
         </div>
@@ -422,19 +438,51 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefres
   </div>;
 }
 
-function Complete({ lang, onLanguageChange, onWithdraw, error }: { lang: Language; onLanguageChange: ChangeLanguage; onWithdraw: () => Promise<void>; error: string | null }) {
+function Complete({ lang, onLanguageChange, onWithdraw, error, state }: {
+  lang: Language; onLanguageChange: ChangeLanguage; onWithdraw: () => Promise<void>;
+  error: string | null; state: StudyState | null;
+}) {
   const t = (nb: string, en: string) => translate(nb, en, lang);
+  const review = state?.review ?? [];
+  const recalled = review.reduce((sum, round) => sum + round.score, 0);
+  const max = review.reduce((sum, round) => sum + round.max_score, 0);
+  const mathCorrect = review.reduce((sum, round) => sum + round.math_correct, 0);
+  const mathAttempts = review.reduce((sum, round) => sum + round.math_attempts, 0);
   return <div className="site-shell"><Header lang={lang} onLanguageChange={onLanguageChange}/>
-    <main className="complete-wrap"><div className="complete-icon"><Check size={40}/></div>
-      <div className="eyebrow"><span aria-hidden="true">LM / 02</span>{t('FORSØK FULLFØRT', 'STUDY COMPLETED')}</div>
-      <h1>{t('Takk for at du deltok!', 'Thank you for participating!')}</h1>
-      <p>{t('Du har fullført alle tre rundene. Svarene dine er lagret og bidrar til prosjektets datagrunnlag.',
-        'You have completed all three rounds. Your answers have been saved and contribute to this study.')}</p>
-      <div className="complete-stats"><div><strong>3/3</strong><span>{t('Fullførte runder', 'Rounds completed')}</span></div><div><strong>30</strong><span>{t('Ordassosiasjoner', 'Word associations')}</span></div></div>
-      <div className="thankyou-note"><ShieldCheck size={19}/>{t('Ingen navn eller e-postadresser ble samlet inn. Du kan lukke denne siden.',
-        'No names or email addresses were collected. You can close this page.')}</div>
+    <main className="results-wrap">
+      <div className="results-head">
+        <div className="results-topline">{t('Alle rundene er fullført', 'All three rounds are complete')} <CheckCircle2 size={18}/></div>
+        <h1>{t('Bra jobbet med å fullføre.', 'Well done for finishing.')}</h1>
+        <p>{t('Alle svarene er registrert. Nå kan du se hvordan det gikk – uten at resultatene påvirker de andre rundene.',
+          'All your answers have been saved. You can now review your performance without affecting any later rounds.')}</p>
+      </div>
+      <section className="results-overview" aria-label={t('Oppsummering', 'Summary')}>
+        <div><span>{t('Ord du husket', 'Words recalled')}</span><strong>{recalled}<small>/{max || 24}</small></strong></div>
+        <div><span>{t('Regnestykker riktig', 'Arithmetic correct')}</span><strong>{mathCorrect}<small>/{mathAttempts}</small></strong></div>
+        <div><span>{t('Gjennomførte runder', 'Rounds completed')}</span><strong>3<small>/3</small></strong></div>
+      </section>
+      <section className="results-review" aria-labelledby="review-title">
+        <h2 id="review-title">{t('Se gjennom svarene dine', 'Review your answers')}</h2>
+        <p className="review-context">{t('Hver rad viser svaret ditt og hvilket ord som ble godkjent. Resultatene må tolkes som en pilot, ikke en vurdering av evner.',
+          'Each row shows your answer and the accepted word. This pilot is not a judgment of your ability.')}</p>
+        {review.map(round => <details className="review-round" key={round.round_index}>
+          <summary><span className="review-title">{t('Runde', 'Round')} {round.round_index + 1} <small>{translate(LABELS[round.condition].nb,LABELS[round.condition].en,lang)}</small></span>
+            <span className="review-score">{round.score}/{round.max_score} <span aria-hidden="true">⌄</span></span></summary>
+          <div className="review-inner">
+            <p>{t('Regnestykker', 'Arithmetic')}: <b>{round.math_correct}/{round.math_attempts}</b></p>
+            <div className="review-labels"><span>{t('Ord', 'Word')}</span><span>{t('Ditt svar', 'Your answer')}</span><span>{t('Fasit', 'Correct answer')}</span></div>
+            {round.items.map(item => <div className={`review-item ${item.correct ? 'correct' : 'incorrect'}`} key={item.word}>
+              <b>{item.word}</b><span>{item.answer.trim() || t('Ikke besvart','Not answered')}</span>
+              <span className="expected"><span className="review-status" aria-label={item.correct ? t('Riktig','Correct') : t('Ikke helt','Not quite')}>
+                {item.correct ? <Check size={15}/> : <span aria-hidden="true">•</span>}</span>{item.expected}</span>
+            </div>)}
+          </div>
+        </details>)}
+      </section>
+      <div className="results-footnote"><ShieldCheck size={18}/><p>{t('Takk for bidraget ditt. Ikke gjenta forsøket for å forbedre poengsummen – et nytt forsøk vil gi misvisende forskningsdata.',
+        'Thank you for taking part. Please do not repeat the experiment to improve your score, as retakes would distort the research data.')}</p></div>
       {error && <div className="error-banner" role="alert">{error}</div>}
-      <button type="button" className="withdraw-link" onClick={() => void onWithdraw()}>{t('Trekk samtykke og slett mine data', 'Withdraw consent and delete my data')}</button>
+      <button type="button" className="withdraw-link" onClick={() => void onWithdraw()}>{t('Trekk samtykket og slett mine data', 'Withdraw consent and delete my data')}</button>
     </main><Footer lang={lang}/></div>;
 }
 
@@ -505,7 +553,11 @@ export default function App() {
     const round = state.round_index;
     setBusy(true); setError(null);
     try {
-      await api.submit(id, round, answers, hidden);
+      const raw = localStorage.getItem(mathKey(id,round));
+      let math = {attempts:0, correct:0};
+      try { if (raw) math = JSON.parse(raw); } catch { /* invalid optional stats */ }
+      await api.submit(id, round, answers, hidden, math.attempts, math.correct);
+      localStorage.removeItem(mathKey(id,round));
       localStorage.removeItem(draftKey(id,round));
       localStorage.removeItem(hiddenKey(id,round));
       await getState(id);
@@ -524,6 +576,7 @@ export default function App() {
       for (let index=0; index<3; index++) {
         localStorage.removeItem(draftKey(id,index));
         localStorage.removeItem(hiddenKey(id,index));
+        localStorage.removeItem(mathKey(id,index));
       }
       localStorage.removeItem(PARTICIPANT_KEY);
       clearParticipantToken();
@@ -547,7 +600,7 @@ export default function App() {
   if (view === 'calibration') return <Calibration lang={lang} onLanguageChange={setLang} onNext={() => {
     if(id) {localStorage.setItem(CALIBRATED_KEY,id); setView('study'); }
   }}/>
-  if (view === 'complete') return <Complete lang={lang} onLanguageChange={setLang} onWithdraw={withdraw} error={error}/>;
+  if (view === 'complete') return <Complete lang={lang} onLanguageChange={setLang} onWithdraw={withdraw} error={error} state={state}/>;
   if (!state || !id) return null;
   return <Study state={state} lang={lang} onLanguageChange={setLang} offsetSeconds={offset} onStart={start} onRefresh={refresh} onSubmit={submit} onWithdraw={withdraw} busy={busy} error={error}/>;
 }

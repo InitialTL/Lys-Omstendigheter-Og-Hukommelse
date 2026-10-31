@@ -30,10 +30,10 @@ def wait_for_server():
     raise RuntimeError('FastAPI did not start')
 
 
-def advance(db_path: Path, participant_id: str, elapsed: int):
+def advance(db_path: Path, participant_id: str, round_index: int, elapsed: int):
     with sqlite3.connect(db_path) as db:
-        db.execute('UPDATE study_rounds SET started_at=? WHERE participant_id=? AND round_index=0',
-                   (time.time() - elapsed, participant_id))
+        db.execute('UPDATE study_rounds SET started_at=? WHERE participant_id=? AND round_index=?',
+                   (time.time() - elapsed, participant_id, round_index))
 
 
 def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
@@ -52,35 +52,53 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     for tile in page.locator('.check-tile').all():
         tile.click()
     page.get_by_role('button', name='I am ready').click()
-    page.get_by_role('button', name='Start this round').click()
-    page.locator('.acclimation-screen').wait_for()
-    assert page.locator('.acclimation-screen .acclimation-timer').count() == 1
-    assert page.locator('.acclimation-screen .study-card').count() == 0
     participant_id = page.evaluate("localStorage.getItem('lm_v2_participant')")
     assert participant_id
-
-    advance(db_path, participant_id, 61)
-    page.reload(wait_until='networkidle')
-    page.locator('.pairs-grid .pair-tile').first.wait_for()
-    assert page.locator('.pair-tile').count() == 10
-    advance(db_path, participant_id, 122)
-    page.reload(wait_until='networkidle')
-    page.locator('.math-form input').wait_for()
-    advance(db_path, participant_id, 153)
-    page.reload(wait_until='networkidle')
-    page.locator('.answers-grid input').first.wait_for()
-    assert page.locator('.answers-grid input').count() == 10
-    page.wait_for_timeout(1100)
-    assert page.locator('.answers-grid input').count() == 10, 'Recall auto-submitted immediately'
-    assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), f'Horizontal overflow at {width}px'
-    page.locator('.answers-grid input').first.fill('test')
-    page.get_by_role('button', name='Submit answers').click()
-    page.get_by_role('button', name='Start this round').wait_for()
+    learned_words = []
+    for round_index in range(3):
+        page.get_by_role('button', name='Start this round').click()
+        page.locator('.acclimation-screen').wait_for()
+        assert page.locator('.acclimation-screen .study-card').count() == 0
+        advance(db_path, participant_id, round_index, 61)
+        page.reload(wait_until='networkidle')
+        page.locator('.pairs-grid .pair-tile').first.wait_for()
+        assert page.locator('.pair-tile').count() == 8
+        learning = page.locator('.pair-tile b').all_inner_texts()
+        learned_words.append(learning)
+        advance(db_path, participant_id, round_index, 136)
+        page.reload(wait_until='networkidle')
+        page.locator('.math-form input').wait_for()
+        page.locator('.math-form input').fill('41')
+        page.get_by_role('button', name='Submit', exact=True).click()
+        assert '1' in page.locator('.math-card>small').inner_text()
+        advance(db_path, participant_id, round_index, 166)
+        page.reload(wait_until='networkidle')
+        page.locator('.answers-grid input').first.wait_for()
+        assert page.locator('.answers-grid input').count() == 8
+        recall = page.locator('.answer-field b').all_inner_texts()
+        assert all(a != b for a,b in zip(learning,recall)), 'Words were not independently shuffled'
+        assert not page.locator('.review-item').count(), 'Answer key leaked before completion'
+        page.wait_for_timeout(1050)
+        assert page.locator('.answers-grid input').count() == 8, 'Recall auto-submitted immediately'
+        assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), f'Horizontal overflow at {width}px'
+        page.locator('.answers-grid input').first.fill('test')
+        page.get_by_role('button', name='Submit answers').click()
+        if round_index < 2:
+            page.get_by_role('button', name='Start this round').wait_for()
+        else:
+            page.locator('.results-review').wait_for()
     with sqlite3.connect(db_path) as db:
-        assert db.execute('SELECT COUNT(*) FROM study_results WHERE participant_id=?',
-                          (participant_id,)).fetchone()[0] == 1
+        saved = db.execute('SELECT score,math_attempts,math_correct FROM study_results WHERE participant_id=? ORDER BY round_index',
+                           (participant_id,)).fetchall()
+        assert len(saved) == 3 and all(row[1] == 1 for row in saved), saved
+    assert page.locator('.review-round').count() == 3
+    page.locator('.review-round summary').first.click()
+    assert page.locator('.review-round').first.locator('.review-item').count() == 8
+    assert page.locator('.results-overview').is_visible()
+    assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), f'Overflow in results at {width}px'
+
     assert not errors, f'Browser exceptions at {width}: {errors}'
-    print(f'PASS {width}×{height} mobile={mobile}, all stages and recall fields')
+    print(f'PASS {width}×{height} mobile={mobile}, full 3-round flow, shuffle, arithmetic and review')
     context.close()
 
 

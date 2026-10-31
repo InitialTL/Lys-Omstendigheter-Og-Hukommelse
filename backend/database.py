@@ -12,6 +12,9 @@ from pathlib import Path
 from itertools import permutations
 
 DB_PATH = Path(os.environ.get("STUDY_DATABASE", str(Path(__file__).with_name("results.db"))))
+PROTOCOL_VERSION = "2.3"
+WORDS_PER_ROUND = 8
+LANGUAGES = ("nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro")
 CONDITIONS = ("WARM", "COOL", "DARK")
 SEQUENCES = (
     ("WARM", "COOL", "DARK"),
@@ -19,7 +22,7 @@ SEQUENCES = (
     ("DARK", "WARM", "COOL"),
 )
 LIST_ORDERS = tuple(permutations((0, 1, 2)))
-LEARN_SECONDS = 60
+LEARN_SECONDS = 75
 DISTRACT_SECONDS = 30
 RECALL_SECONDS = 120
 ACCLIMATION_SECONDS = 60
@@ -45,20 +48,22 @@ def init_db() -> None:
         db.executescript("""
             CREATE TABLE IF NOT EXISTS study_participants (
                 id TEXT PRIMARY KEY,
-                language TEXT NOT NULL CHECK(language IN ('nb','en','sv','de','fr','es')),
+                language TEXT NOT NULL CHECK(language IN ('nb','en','sv','de','fr','es','it','pt','nl','da','pl','ro')),
                 age_band TEXT NOT NULL,
                 gender TEXT NOT NULL,
                 group_name TEXT NOT NULL CHECK(group_name IN ('A','B','C')),
                 list_order TEXT NOT NULL,
                 consented_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                protocol_version TEXT NOT NULL DEFAULT '2.1',
+                protocol_version TEXT NOT NULL DEFAULT '2.3',
                 token_hash TEXT
             );
             CREATE TABLE IF NOT EXISTS study_rounds (
                 participant_id TEXT NOT NULL,
                 round_index INTEGER NOT NULL CHECK(round_index BETWEEN 0 AND 2),
                 started_at REAL NOT NULL,
+                learning_order TEXT,
+                recall_order TEXT,
                 PRIMARY KEY (participant_id, round_index),
                 FOREIGN KEY(participant_id) REFERENCES study_participants(id)
             );
@@ -73,6 +78,8 @@ def init_db() -> None:
                 recall_seconds REAL NOT NULL,
                 hidden_count INTEGER NOT NULL DEFAULT 0,
                 submitted_late INTEGER NOT NULL DEFAULT 0,
+                math_attempts INTEGER NOT NULL DEFAULT 0,
+                math_correct INTEGER NOT NULL DEFAULT 0,
                 completed_at TEXT NOT NULL,
                 PRIMARY KEY (participant_id, round_index),
                 FOREIGN KEY(participant_id) REFERENCES study_participants(id)
@@ -80,37 +87,45 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_study_results_condition
               ON study_results(condition);
         """)
-    # Existing V2.0 databases restricted the language column to nb/en.
-    # Rebuild only that small table inside one transaction; other tables and
-    # already-recorded participant IDs/results remain untouched.
+    # Migrate old pilot schemas without modifying or deleting old results.
+    # Only V2.3 participants are accepted by public study endpoints.
     with connect() as db:
-        schema = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='study_participants'").fetchone()[0]
-    if "language IN ('nb','en')" in schema:
-        with sqlite3.connect(DB_PATH) as db:
-            db.execute("PRAGMA foreign_keys=OFF")
-            db.execute("BEGIN IMMEDIATE")
-            db.execute("""CREATE TABLE study_participants_upgrade (
+        existing = {r[1] for r in db.execute('PRAGMA table_info(study_participants)')}
+        schema = db.execute("SELECT sql FROM sqlite_master WHERE name='study_participants'").fetchone()[0]
+    if "'ro'" not in schema or 'protocol_version' not in existing or 'token_hash' not in existing:
+        with sqlite3.connect(DB_PATH, timeout=15) as db:
+            db.execute('PRAGMA foreign_keys=OFF')
+            db.execute('BEGIN IMMEDIATE')
+            db.execute('''CREATE TABLE study_participants_new_v23 (
                 id TEXT PRIMARY KEY,
-                language TEXT NOT NULL CHECK(language IN ('nb','en','sv','de','fr','es')),
+                language TEXT NOT NULL CHECK(language IN ('nb','en','sv','de','fr','es','it','pt','nl','da','pl','ro')),
                 age_band TEXT NOT NULL,
                 gender TEXT NOT NULL,
                 group_name TEXT NOT NULL CHECK(group_name IN ('A','B','C')),
                 list_order TEXT NOT NULL,
                 consented_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                protocol_version TEXT NOT NULL DEFAULT '2.1',
+                protocol_version TEXT NOT NULL DEFAULT '2.3',
                 token_hash TEXT
-            )""")
-            db.execute("INSERT INTO study_participants_upgrade SELECT *, '2.0', NULL FROM study_participants")
-            db.execute("DROP TABLE study_participants")
-            db.execute("ALTER TABLE study_participants_upgrade RENAME TO study_participants")
-            assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+            )''')
+            protocol_expr = 'protocol_version' if 'protocol_version' in existing else "'2.0'"
+            token_expr = 'token_hash' if 'token_hash' in existing else 'NULL'
+            db.execute(f'''INSERT INTO study_participants_new_v23
+                 SELECT id,language,age_band,gender,group_name,list_order,consented_at,created_at,
+                        {protocol_expr},{token_expr} FROM study_participants''')
+            db.execute('DROP TABLE study_participants')
+            db.execute('ALTER TABLE study_participants_new_v23 RENAME TO study_participants')
+            assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+
     with connect() as db:
-        columns = {row[1] for row in db.execute("PRAGMA table_info(study_participants)")}
-        if "protocol_version" not in columns:
-            db.execute("ALTER TABLE study_participants ADD COLUMN protocol_version TEXT NOT NULL DEFAULT '2.0'")
-        if "token_hash" not in columns:
-            db.execute("ALTER TABLE study_participants ADD COLUMN token_hash TEXT")
+        rounds_cols = {r[1] for r in db.execute('PRAGMA table_info(study_rounds)')}
+        for name in ('learning_order','recall_order'):
+            if name not in rounds_cols:
+                db.execute(f'ALTER TABLE study_rounds ADD COLUMN {name} TEXT')
+        results_cols = {r[1] for r in db.execute('PRAGMA table_info(study_results)')}
+        for name in ('math_attempts','math_correct'):
+            if name not in results_cols:
+                db.execute(f'ALTER TABLE study_results ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0')
 
 
 def now_iso() -> str:
@@ -121,7 +136,7 @@ def create_participant(language: str, age_band: str, gender: str) -> dict:
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         counts = {group: db.execute(
-            "SELECT COUNT(*) FROM study_participants WHERE group_name=?", (group,)
+            "SELECT COUNT(*) FROM study_participants WHERE group_name=? AND protocol_version=?", (group, PROTOCOL_VERSION)
         ).fetchone()[0] for group in "ABC"}
         group = min("ABC", key=lambda group_: counts[group_])
         # Balance all 6 word-list orders within each light-sequence group.
@@ -132,7 +147,7 @@ def create_participant(language: str, age_band: str, gender: str) -> dict:
         db.execute("""INSERT INTO study_participants
           (id, language, age_band, gender, group_name, list_order, consented_at, created_at, protocol_version, token_hash)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-          (participant_id, language, age_band, gender, group, json.dumps(order), now_iso(), now_iso(), "2.1", token_hash))
+          (participant_id, language, age_band, gender, group, json.dumps(order), now_iso(), now_iso(), PROTOCOL_VERSION, token_hash))
     return {"participant_id": participant_id, "group": group, "access_token": access_token}
 
 
@@ -143,7 +158,7 @@ def verify_token(participant_id: str, access_token: str | None) -> bool:
     with connect() as db:
         participant = db.execute("SELECT token_hash, protocol_version FROM study_participants WHERE id=?",
                                  (participant_id,)).fetchone()
-    if not participant or participant["protocol_version"] != "2.1" or not participant["token_hash"]:
+    if not participant or participant["protocol_version"] != PROTOCOL_VERSION or not participant["token_hash"]:
         return False
     provided = hashlib.sha256(access_token.encode("utf-8")).hexdigest()
     return secrets.compare_digest(provided, participant["token_hash"])
@@ -152,7 +167,7 @@ def verify_token(participant_id: str, access_token: str | None) -> bool:
 def get_next(participant_id: str) -> dict | None:
     with connect() as db:
         participant = db.execute("SELECT * FROM study_participants WHERE id=?", (participant_id,)).fetchone()
-        if participant is None or participant["protocol_version"] != "2.1":
+        if participant is None or participant["protocol_version"] != PROTOCOL_VERSION:
             return None
         completed = db.execute("SELECT round_index FROM study_results WHERE participant_id=?",
                                (participant_id,)).fetchall()
@@ -171,7 +186,7 @@ def get_next(participant_id: str) -> dict | None:
             return common
         condition = SEQUENCES["ABC".index(participant["group_name"])][idx]
         list_id = json.loads(participant["list_order"])[idx]
-        started = db.execute("SELECT started_at FROM study_rounds WHERE participant_id=? AND round_index=?",
+        started = db.execute("SELECT started_at,learning_order,recall_order FROM study_rounds WHERE participant_id=? AND round_index=?",
                              (participant_id, idx)).fetchone()
         if not started:
             return {**common, "round_index": idx, "condition": condition,
@@ -186,7 +201,9 @@ def get_next(participant_id: str) -> dict | None:
         else:
             phase, phase_end = "recall", started["started_at"] + ACCLIMATION_SECONDS + LEARN_SECONDS + DISTRACT_SECONDS + RECALL_SECONDS
         return {**common, "round_index": idx, "condition": condition,
-                "list_id": list_id, "phase": phase, "phase_end_at": phase_end}
+                "list_id": list_id, "phase": phase, "phase_end_at": phase_end,
+                "learning_order": json.loads(started["learning_order"]),
+                "recall_order": json.loads(started["recall_order"])}
 
 
 def start_round(participant_id: str) -> dict | None:
@@ -194,18 +211,32 @@ def start_round(participant_id: str) -> dict | None:
     state = get_next(participant_id)
     if state is None or state["finished"]:
         return state
+    learning_order = list(range(WORDS_PER_ROUND))
+    recall_order = list(range(WORDS_PER_ROUND))
+    secure_random = secrets.SystemRandom()
+    secure_random.shuffle(learning_order)
+    # The test never presents words in the same screen positions as learning.
+    for _ in range(200):
+        secure_random.shuffle(recall_order)
+        if all(a != b for a,b in zip(learning_order,recall_order)):
+            break
+    else:
+        raise RuntimeError('Unable to create shuffled recall order')
     with connect() as db:
-        db.execute("INSERT OR IGNORE INTO study_rounds(participant_id,round_index,started_at) VALUES (?,?,?)",
-                   (participant_id, state["round_index"], time.time()))
+        db.execute('''INSERT OR IGNORE INTO study_rounds
+            (participant_id,round_index,started_at,learning_order,recall_order)
+            VALUES (?,?,?,?,?)''',
+            (participant_id, state["round_index"], time.time(),
+             json.dumps(learning_order), json.dumps(recall_order)))
     return get_next(participant_id)
 
 
 def save_result(participant_id: str, round_index: int, answers: list[str],
-                hidden_count: int, score: int) -> dict:
+                hidden_count: int, score: int, math_attempts: int = 0, math_correct: int = 0) -> dict:
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         participant = db.execute("SELECT * FROM study_participants WHERE id=?", (participant_id,)).fetchone()
-        if not participant or participant["protocol_version"] != "2.1":
+        if not participant or participant["protocol_version"] != PROTOCOL_VERSION:
             raise ValueError("participant")
         existing = db.execute("SELECT 1 FROM study_results WHERE participant_id=? AND round_index=?",
                               (participant_id, round_index)).fetchone()
@@ -214,7 +245,7 @@ def save_result(participant_id: str, round_index: int, answers: list[str],
         completed = db.execute("SELECT count(*) FROM study_results WHERE participant_id=?", (participant_id,)).fetchone()[0]
         if completed != round_index:
             raise ValueError("order")
-        started = db.execute("SELECT started_at FROM study_rounds WHERE participant_id=? AND round_index=?",
+        started = db.execute("SELECT started_at,learning_order,recall_order FROM study_rounds WHERE participant_id=? AND round_index=?",
                              (participant_id, round_index)).fetchone()
         if not started:
             raise ValueError("not_started")
@@ -226,11 +257,11 @@ def save_result(participant_id: str, round_index: int, answers: list[str],
         recall_seconds = max(0, elapsed - ACCLIMATION_SECONDS - LEARN_SECONDS - DISTRACT_SECONDS)
         late = int(recall_seconds > RECALL_SECONDS + 5)
         db.execute("""INSERT INTO study_results
-          (participant_id,round_index,condition,list_id,answers,score,max_score,recall_seconds,hidden_count,submitted_late,completed_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+          (participant_id,round_index,condition,list_id,answers,score,max_score,recall_seconds,hidden_count,submitted_late,math_attempts,math_correct,completed_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
           (participant_id, round_index, condition, list_id, json.dumps(answers, ensure_ascii=False),
-           score, 10, recall_seconds, hidden_count, late, now_iso()))
-    return {"score": score, "max_score": 10, "submitted_late": bool(late)}
+           score, WORDS_PER_ROUND, recall_seconds, hidden_count, late, math_attempts, math_correct, now_iso()))
+    return {"saved": True}
 
 
 def export_rows() -> list[dict]:
@@ -238,10 +269,33 @@ def export_rows() -> list[dict]:
         rows = db.execute("""SELECT p.id AS participant_id,p.language,p.age_band,p.gender,
           p.protocol_version,p.group_name,p.list_order,p.created_at,r.round_index,r.condition,r.list_id,
           r.answers,r.score,r.max_score,r.recall_seconds,r.hidden_count,
-          r.submitted_late,r.completed_at
+          r.submitted_late,r.math_attempts,r.math_correct,r.completed_at
           FROM study_results r JOIN study_participants p ON p.id=r.participant_id
           ORDER BY p.created_at,r.round_index""").fetchall()
         return [dict(row) for row in rows]
+
+
+def completed_rounds(participant_id: str) -> list[dict] | None:
+    '''Return raw results only for a fully finished V2.3 session.
+
+    The API layer adds translations and grades after this gate, so the
+    correct answers are never available while another round remains.
+    '''
+    with connect() as db:
+        protocol = db.execute('SELECT protocol_version FROM study_participants WHERE id=?',
+                              (participant_id,)).fetchone()
+        if not protocol or protocol['protocol_version'] != PROTOCOL_VERSION:
+            return None
+        data = db.execute('''SELECT r.*,p.group_name,p.list_order,p.language,
+                     q.recall_order FROM study_results r
+                     JOIN study_participants p ON p.id=r.participant_id
+                     JOIN study_rounds q ON q.participant_id=r.participant_id
+                       AND q.round_index=r.round_index
+                     WHERE r.participant_id=? ORDER BY r.round_index''',
+                     (participant_id,)).fetchall()
+        if len(data) != 3 or [x['round_index'] for x in data] != [0,1,2]:
+            return None
+        return [dict(x) for x in data]
 
 
 def delete_participant(participant_id: str) -> bool:

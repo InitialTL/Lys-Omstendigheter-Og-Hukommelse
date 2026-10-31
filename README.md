@@ -203,3 +203,11 @@ Både Cloudflare-konfigurasjon og skikkelig belastning på en **fysisk Raspberry
 Pi 3** må fortsatt verifiseres på den faktiske maskinen. Bygg og testing
 garanterer ikke at alle nettlesere, operativsystemer og skjermstørrelser er
 feilfrie, eller at løsningen er immune mot angrep.
+
+## Version 2.3: easier pilot, shuffled order, private results
+
+A new protocol changes the memory task to **eight distinct nonwords** with **75 seconds to learn**, a 60-second adaptation and a 30-second arithmetic distraction. For each round, the server persists a randomized learning order and a different recall order. Participants receive their **word-by-word answer review** and **math totals** only after completing all three rounds. The new score range is **0–8 per round**; previous 2.1/2.2 data remain preserved and are excluded from 2.3 analysis by default.
+
+Study nouns now have labels in 12 pilot languages: Norwegian, English, Swedish, German, French, Spanish, Italian, Portuguese, Dutch, Danish, Polish and Romanian. The last six currently use English as the interface fallback, which is clearly disclosed. A study-language selection stays fixed once a participant begins, even if the interface language is changed. Native-speaker review is required before treating scores as language-comparable.
+
+The visual system uses [frontend/src/human.css](frontend/src/human.css): neutral paper surfaces, restrained typographic hierarchy and simple answer rows rather than dark decorative cards. [docs/PROTOCOL_V23.md](docs/PROTOCOL_V23.md) describes the changed experimental procedure, methodological limits and review timing.

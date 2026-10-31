@@ -4,6 +4,11 @@ export type Condition = 'WARM' | 'COOL' | 'DARK';
 export type Phase = 'setup' | 'acclimation' | 'learning' | 'distraction' | 'recall';
 
 export type Pair = { word: string; meaning: string };
+export type ReviewItem = { word: string; answer: string; expected: string; correct: boolean };
+export type RoundReview = {
+  round_index: number; condition: Condition; score: number; max_score: number;
+  math_attempts: number; math_correct: number; items: ReviewItem[];
+};
 export type StudyState = {
   participant_id: string;
   language: Language;
@@ -19,6 +24,7 @@ export type StudyState = {
   phase_end_at?: number | null;
   words?: string[];
   pairs?: Pair[];
+  review?: RoundReview[];
 };
 
 export type Registration = {
@@ -68,9 +74,9 @@ export const api = {
     const response = await fetch(`/api/participants/${encodeURIComponent(id)}`, { method: 'DELETE', cache: 'no-store', referrerPolicy: 'no-referrer', headers: authenticatedHeaders() });
     if (!response.ok) throw new Error(`Unable to withdraw (${response.status})`);
   },
-  submit: (id: string, round: number, answers: string[], hidden_count: number) =>
-    request<{ score: number; max_score: number; submitted_late: boolean }>(
+  submit: (id: string, round: number, answers: string[], hidden_count: number, math_attempts: number, math_correct: number) =>
+    request<{ saved: boolean }>(
       `/api/participants/${encodeURIComponent(id)}/rounds/${round}/submit`,
-      { method: 'POST', body: JSON.stringify({ answers, hidden_count }), headers: authenticatedHeaders() }
+      { method: 'POST', body: JSON.stringify({ answers, hidden_count, math_attempts, math_correct }), headers: authenticatedHeaders() }
     ),
 };

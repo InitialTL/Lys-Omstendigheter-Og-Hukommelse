@@ -11,7 +11,7 @@ def main():
     headers = ['participant_id','language','age_band','gender','protocol_version','group_name',
                'list_order','created_at','round_index','condition','list_id',
                'answers','score','max_score','recall_seconds','hidden_count',
-               'submitted_late','completed_at']
+               'submitted_late','math_attempts','math_correct','completed_at']
     with destination.open('w', encoding='utf-8-sig', newline='') as out:
         writer = csv.DictWriter(out, fieldnames=headers)
         writer.writeheader()

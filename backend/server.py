@@ -1,6 +1,7 @@
 """Hukommelse LM – React client and FastAPI study server."""
 from __future__ import annotations
 import csv
+import json
 import ipaddress
 import io
 import os
@@ -20,7 +21,7 @@ from pydantic import BaseModel, Field, ConfigDict
 import database
 import words
 
-app = FastAPI(title="Hukommelse LM API", version="2.2.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="Hukommelse LM API", version="2.3.0", docs_url=None, redoc_url=None)
 
 # A publicly reachable origin must be placed behind HTTPS and a firewall or
 # Cloudflare Tunnel. Never accept arbitrary Host headers on the origin.
@@ -116,7 +117,7 @@ database.init_db()
 
 class Registration(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    language: Literal["nb", "en", "sv", "de", "fr", "es"]
+    language: Literal["nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro"]
     age_band: Literal["16_17", "18_24", "25_44", "45_plus", "prefer_not"]
     gender: Literal["woman", "man", "nonbinary", "other", "prefer_not"]
     consent: Literal[True]
@@ -124,8 +125,10 @@ class Registration(BaseModel):
 
 class Submission(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    answers: list[str] = Field(min_length=10, max_length=10)
+    answers: list[str] = Field(min_length=8, max_length=8)
     hidden_count: int = Field(default=0, ge=0, le=10000)
+    math_attempts: int = Field(default=0, ge=0, le=100)
+    math_correct: int = Field(default=0, ge=0, le=100)
 
 
 def authorize(participant_id: str, token: str | None) -> None:
@@ -138,17 +141,37 @@ def build_state(participant_id: str) -> dict:
     data = database.get_next(participant_id)
     if data is None:
         raise HTTPException(status_code=404, detail="Unknown participant")
-    if not data["finished"]:
-        data["words"] = words.recall_words(data["list_id"]) if data["phase"] == "recall" else []
-        # Correct answers are NEVER included in recall/setup responses.
+    # The shuffles are server-side, persisted, and hidden from unrelated phases.
+    learning_order = data.pop("learning_order", None)
+    recall_order = data.pop("recall_order", None)
+    if data["finished"]:
+        # Review is released ONLY after all three rounds are submitted.
+        # This prevents knowledge of correct answers contaminating later rounds.
+        rounds = database.completed_rounds(participant_id)
+        if rounds:
+            data['review'] = [
+                {
+                    'round_index': r['round_index'],
+                    'condition': r['condition'],
+                    'score': r['score'],
+                    'max_score': r['max_score'],
+                    'math_attempts': r['math_attempts'],
+                    'math_correct': r['math_correct'],
+                    'items': words.answer_review(r['list_id'], r['language'],
+                            json.loads(r['answers']),
+                            json.loads(r['recall_order'])),
+                } for r in rounds
+            ]
+    else:
+        data["words"] = words.recall_words(data["list_id"], recall_order) if data["phase"] == "recall" else []
         if data["phase"] == "learning":
-            data["pairs"] = words.learning_pairs(data["list_id"], data["language"])
+            data["pairs"] = words.learning_pairs(data["list_id"], data["language"], learning_order)
     return data
 
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "2.2.0"}
+    return {"status": "ok", "version": "2.3.0"}
 
 
 @app.get("/api/config")
@@ -163,7 +186,7 @@ def config():
         "distraction_seconds": database.DISTRACT_SECONDS,
         "recall_seconds": database.RECALL_SECONDS,
         "acclimation_seconds": database.ACCLIMATION_SECONDS,
-        "words_per_round": 10,
+        "words_per_round": database.WORDS_PER_ROUND,
         "rounds": 3,
         "measurement": "Screen background sRGB values; not calibrated Kelvin or lux",
     }
@@ -230,10 +253,13 @@ def submit(participant_id: str, round_index: int, submission: Submission,
     if state["phase"] != "recall":
         raise HTTPException(status_code=409, detail="Recall has not started")
     language = state["language"]
-    score, _ = words.grade(state["list_id"], language, submission.answers)
+    if submission.math_correct > submission.math_attempts:
+        raise HTTPException(status_code=422, detail="Impossible arithmetic totals")
+    score, _ = words.grade(state["list_id"], language, submission.answers, state["recall_order"])
     try:
         return database.save_result(participant_id, round_index, submission.answers,
-                                    submission.hidden_count, score)
+                                    submission.hidden_count, score,
+                                    submission.math_attempts, submission.math_correct)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=f"Cannot submit round: {exc}") from exc
 
@@ -255,7 +281,7 @@ def admin_export(x_admin_token: str | None = Header(default=None)):
         raise HTTPException(status_code=403, detail="Forbidden")
     fields = ["participant_id", "language", "age_band", "gender", "protocol_version", "group_name", "list_order",
               "created_at", "round_index", "condition", "list_id", "answers", "score",
-              "max_score", "recall_seconds", "hidden_count", "submitted_late", "completed_at"]
+              "max_score", "recall_seconds", "hidden_count", "submitted_late", "math_attempts", "math_correct", "completed_at"]
     out = io.StringIO()
     writer = csv.DictWriter(out, fieldnames=fields)
     writer.writeheader()

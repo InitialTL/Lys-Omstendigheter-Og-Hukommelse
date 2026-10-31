@@ -1,6 +1,7 @@
 /** Curated interface languages. Unknown keys fall back to English deliberately. */
 export const LANGUAGE_NAMES = {
   nb: 'Norsk', en: 'English', sv: 'Svenska', de: 'Deutsch', fr: 'Français', es: 'Español',
+  it: 'Italiano', pt: 'Português', nl: 'Nederlands', da: 'Dansk', pl: 'Polski', ro: 'Română',
 } as const;
 export type Language = keyof typeof LANGUAGE_NAMES;
 
@@ -36,8 +37,8 @@ const MESSAGES: Record<string, [string, string, string, string]> = {
   'HOW IT WORKS': ['SÅ FUNGERAR DET','SO FUNKTIONIERT ES','DÉROULEMENT','CÓMO FUNCIONA'],
   'Prepare your screen': ['Förbered din skärm','Bildschirm vorbereiten','Préparer votre écran','Prepara tu pantalla'],
   'A simple checklist before beginning': ['En enkel checklista före start','Eine kurze Checkliste vor dem Start','Quelques vérifications avant de commencer','Una lista breve antes de empezar'],
-  'Learn 10 word pairs': ['Lär dig 10 ordpar','10 Wortpaare lernen','Apprendre 10 paires de mots','Aprende 10 pares de palabras'],
-  'You have 60 seconds to memorize': ['Du har 60 sekunder på dig','Du hast 60 Sekunden Zeit','Vous avez 60 secondes','Tienes 60 segundos'],
+  'Learn 8 word pairs': ['Lär dig 8 ordpar','8 Wortpaare lernen','Apprendre 8 paires de mots','Aprende 8 pares de palabras'],
+  'You have 75 seconds to memorize': ['Du har 75 sekunder på dig','Du hast 75 Sekunden Zeit','Vous avez 75 secondes','Tienes 75 segundos'],
   'Test your memory': ['Testa ditt minne','Gedächtnis testen','Tester votre mémoire','Pon a prueba tu memoria'],
   'A short distraction before you recall the answers': ['En kort distraktion före minnestestet','Kurze Ablenkung vor dem Erinnerungstest','Une courte distraction avant le rappel','Una breve distracción antes de recordar'],
   'PARTICIPATE': ['DELTA','TEILNEHMEN','PARTICIPER','PARTICIPA'],
@@ -143,19 +144,41 @@ const MESSAGES: Record<string, [string, string, string, string]> = {
   'Warm screen color': ['Varm skärmfärg','Warme Bildschirmfarbe','Couleur d’écran chaude','Color de pantalla cálido'],
   'Cool screen color': ['Kall skärmfärg','Kühle Bildschirmfarbe','Couleur d’écran froide','Color de pantalla frío'],
   'Near-black screen background': ['Nästan svart skärmbakgrund','Fast schwarzer Hintergrund','Fond d’écran presque noir','Fondo casi negro'],
+  'Your answers, at last': ['Dina svar, till sist','Deine Antworten im Überblick','Enfin, vos réponses','Tus respuestas, al final'],
+  'View your answers': ['Visa dina svar','Antworten ansehen','Voir vos réponses','Ver tus respuestas'],
+  'Your answer': ['Ditt svar','Deine Antwort','Votre réponse','Tu respuesta'],
+  'Correct answer': ['Rätt svar','Richtige Antwort','Bonne réponse','Respuesta correcta'],
+  'Not answered': ['Inget svar','Keine Antwort','Sans réponse','Sin respuesta'],
+  'Correct': ['Rätt','Richtig','Correct','Correcto'],
+  'Not quite': ['Inte riktigt','Nicht ganz','Pas tout à fait','No del todo'],
+  'Arithmetic questions': ['Räkneuppgifter','Rechenaufgaben','Calcul mental','Cálculo mental'],
+  'You can now review every word and see which answers were accepted.':
+    ['Nu kan du gå igenom alla ord och se vilka svar som godkändes.','Du kannst jetzt alle Wörter und ihre Bewertungen ansehen.','Vous pouvez revoir tous les mots et les réponses acceptées.','Ahora puedes revisar todas las palabras y los aciertos.'],
+  'Results appear only when all three rounds are complete, so they cannot influence your next round.':
+    ['Resultaten visas efter tre omgångar, så de inte påverkar nästa.','Ergebnisse erscheinen erst nach allen drei Runden.','Les résultats apparaissent après les trois tours.','Los resultados aparecen después de las tres rondas.'],
+  'The words will appear in a different order when you answer.':
+    ['Orden visas i en annan ordning när du svarar.','Die Wörter erscheinen beim Antworten in anderer Reihenfolge.','Les mots apparaîtront dans un autre ordre lors du rappel.','Las palabras aparecerán en otro orden al responder.'],
+  'The order is shuffled. Take your time and recall the meaning of each word.':
+    ['Ordningen är blandad. Ta din tid och försök minnas betydelsen.','Die Reihenfolge ist gemischt. Erinnere dich an die Bedeutung.','L’ordre est mélangé. Prenez le temps de retrouver chaque sens.','El orden es aleatorio. Recuerda el significado de cada palabra.'],
+  'Well done for finishing': ['Bra jobbat med att slutföra','Gut gemacht, du hast es geschafft','Merci d’avoir terminé','Gracias por terminar'],
+  'Every answer helps us understand how people learn.':
+    ['Varje svar hjälper oss förstå hur människor lär sig.','Jede Antwort hilft uns, das Lernen zu verstehen.','Chaque réponse nous aide à comprendre l’apprentissage.','Cada respuesta nos ayuda a entender cómo aprendemos.'],
+
 };
 
 export function translate(nb: string, en: string, lang: Language): string {
   if (lang === 'nb') return nb;
   if (lang === 'en') return en;
   const record = MESSAGES[en];
-  return record ? record[{ sv:0, de:1, fr:2, es:3 }[lang]] : en;
+  const index = ({ sv:0, de:1, fr:2, es:3 } as Partial<Record<Language, number>>)[lang];
+  // Further study languages currently use a clearly disclosed English UI fallback.
+  return record && index !== undefined ? record[index] : en;
 }
 
 export const OS_NAMES = ['windows', 'macos', 'linux', 'ios', 'android', 'external'] as const;
 export type OSName = typeof OS_NAMES[number];
 
-export const OS_HELP: Record<OSName, Record<Language, string>> = {
+export const OS_HELP: Record<OSName, Partial<Record<Language, string>>> = {
   windows: {nb:'Windows 10/11: Innstillinger → System → Skjerm → Lysstyrke, eller bruk Fn-tastene. Slå av nattlys. På ekstern skjerm bruker du knappene på skjermen.', en:'Windows 10/11: Settings → System → Display → Brightness, or use Fn keys. Turn off Night light. External monitors use their own controls.', sv:'Windows 10/11: Inställningar → System → Bildskärm → Ljusstyrka, eller Fn-tangenter. Stäng av nattläge. Externa skärmar har egna knappar.', de:'Windows 10/11: Einstellungen → System → Anzeige → Helligkeit oder Fn-Tasten. Nachtmodus ausschalten. Externe Monitore separat einstellen.', fr:'Windows 10/11 : Paramètres → Système → Affichage → Luminosité, ou touches Fn. Désactivez l’éclairage nocturne. Utilisez les boutons de l’écran externe.', es:'Windows 10/11: Configuración → Sistema → Pantalla → Brillo, o teclas Fn. Desactiva luz nocturna. Los monitores externos tienen sus propios controles.'},
   macos: {nb:'macOS: Kontrollsenter → Skjerm / Lysstyrke, eller Systeminnstillinger → Skjermer. Slå av True Tone, Night Shift og automatisk lysstyrke.', en:'macOS: Control Center → Display / Brightness or System Settings → Displays. Disable True Tone, Night Shift and automatic brightness.', sv:'macOS: Kontrollcenter → Skärm / Ljusstyrka eller Systeminställningar → Bildskärmar. Stäng av True Tone, Night Shift och automatisk ljusstyrka.', de:'macOS: Kontrollzentrum → Display / Helligkeit oder Systemeinstellungen → Displays. True Tone, Night Shift und automatische Helligkeit ausschalten.', fr:'macOS : Centre de contrôle → Écran / Luminosité ou Réglages Système → Moniteurs. Désactivez True Tone, Night Shift et la luminosité auto.', es:'macOS: Centro de control → Pantalla / Brillo o Ajustes del Sistema → Pantallas. Desactiva True Tone, Night Shift y brillo automático.'},
   linux: {nb:'Linux: Bruk skrivebordsmiljøets skjerm-/strøminnstillinger (GNOME/KDE) eller lysstyrketastene. Slå av nattmodus. For ekstern skjerm, bruk skjermens knapper.', en:'Linux: Use your desktop environment’s display/power settings (GNOME/KDE) or brightness keys. Turn off Night Light. External displays use their controls.', sv:'Linux: Använd skrivbordsmiljöns skärm- eller energiinställningar (GNOME/KDE) eller ljusstyrketangenter. Stäng av nattläge.', de:'Linux: Helligkeit über Anzeige-/Energieeinstellungen (GNOME/KDE) oder Funktionstasten regeln. Nachtmodus ausschalten.', fr:'Linux : utilisez les paramètres écran/alimentation (GNOME/KDE) ou les touches de luminosité. Désactivez le mode nuit.', es:'Linux: usa la configuración de pantalla/energía (GNOME/KDE) o teclas de brillo. Desactiva la luz nocturna.'},

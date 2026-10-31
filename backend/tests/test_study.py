@@ -51,32 +51,35 @@ def test_experiment_flow_and_server_timers(client):
     clock['now'] += 60
     started = c.get(base + '/next').json()
     assert started['phase'] == 'learning'
-    assert len(started['pairs']) == 10
+    assert len(started['pairs']) == 8
     repeat = c.post(base + '/rounds/start').json()
     assert repeat['phase_end_at'] == started['phase_end_at']
-    early = c.post(base + '/rounds/0/submit', json={'answers':['']*10,'hidden_count':0})
+    early = c.post(base + '/rounds/0/submit', json={'answers':['']*8,'hidden_count':0})
     assert early.status_code == 409
-    clock['now'] += 61
+    clock['now'] += 76
     during = c.get(base + '/next').json()
     assert during['phase'] == 'distraction'
     assert 'pairs' not in during
     clock['now'] += 30
     recall = c.get(base + '/next').json()
     assert recall['phase'] == 'recall'
-    assert len(recall['words']) == 10
+    assert len(recall['words']) == 8
     assert 'pairs' not in recall
-    answers = [pair['meaning'] for pair in started['pairs']]
+    assert 'review' not in recall
+    mapping = {pair['word']:pair['meaning'] for pair in started['pairs']}
+    answers = [mapping[word] for word in recall['words']]
     submitted = c.post(base + '/rounds/0/submit', json={'answers': answers, 'hidden_count': 1})
     assert submitted.status_code == 200, submitted.text
-    assert submitted.json()['score'] == 10
+    assert submitted.json().get('score') is None  # no premature scoring feedback
     assert c.post(base + '/rounds/0/submit', json={'answers': answers}).status_code == 409
     next_state = c.get(base + '/next').json()
     assert next_state['phase'] == 'setup'
     assert next_state['condition'] == 'COOL'
     assert next_state['list_id'] != state['list_id']
+    assert 'review' not in next_state
     with database.connect() as db:
         row = db.execute('SELECT score,hidden_count,condition FROM study_results').fetchone()
-    assert tuple(row) == (10, 1, 'WARM')
+    assert tuple(row) == (8, 1, 'WARM')
 
 
 def test_complete_three_rounds_and_export(client, monkeypatch):
@@ -93,12 +96,20 @@ def test_complete_three_rounds_and_export(client, monkeypatch):
         clock['now'] += 60
         started = c.get(base + '/next').json()
         assert started['phase'] == 'learning'
-        clock['now'] += 95
+        clock['now'] += 106
+        recall = c.get(base + '/next').json()
+        mapping = {item['word']:item['meaning'] for item in started['pairs']}
         submitted = c.post(base + f'/rounds/{round_index}/submit', json={
-            'answers':[item['meaning'] for item in started['pairs']], 'hidden_count':0
+            'answers':[mapping[word] for word in recall['words']],
+            'hidden_count':0, 'math_attempts':5, 'math_correct':4
         })
         assert submitted.status_code == 200
-    assert c.get(f'/api/participants/{pid}/next').json()['finished']
+    final = c.get(f'/api/participants/{pid}/next').json()
+    assert final['finished']
+    assert len(final['review']) == 3
+    assert all(x['score']==8 and len(x['items']) == 8 for x in final['review'])
+    assert all(x['math_correct']==4 and x['math_attempts']==5 for x in final['review'])
+    assert all(item['correct'] for round_ in final['review'] for item in round_['items'])
     assert c.get('/api/admin/export.csv').status_code == 503
     monkeypatch.setenv('STUDY_ADMIN_TOKEN', 'a-real-secret-used-only-for-tests')
     assert c.get('/api/admin/export.csv').status_code == 403
@@ -109,13 +120,13 @@ def test_complete_three_rounds_and_export(client, monkeypatch):
 
 
 def test_score_is_language_specific_and_normalized():
-    score, correct = words.grade(0, 'nb', ['  STOL!','NOKKEL','eple','sykkel','lampe','bok','skje','vindu','sko','kopp'])
-    assert score == 10 and all(correct)
-    score_en, _ = words.grade(0,'en',['stol']*10)
+    score, correct = words.grade(0, 'nb', ['  STOL!','NOKKEL','eple','sykkel','lampe','bok','skje','vindu'])
+    assert score == 8 and all(correct)
+    score_en, _ = words.grade(0,'en',['stol']*8)
     assert score_en == 0
     for lang in words.LANGUAGES:
         labels = [pair['meaning'] for pair in words.learning_pairs(0, lang)]
-        assert words.grade(0, lang, labels)[0] == 10
+        assert words.grade(0, lang, labels)[0] == 8
 
 
 def test_legacy_data_kept(tmp_path, monkeypatch):
@@ -139,8 +150,8 @@ def test_withdrawal_deletes_study_data(client):
     c.headers['X-Participant-Token'] = result['access_token']
     base = f'/api/participants/{pid}'
     c.post(base + '/rounds/start')
-    clock['now'] += 152
-    assert c.post(base + '/rounds/0/submit', json={'answers':['']*10}).status_code == 200
+    clock['now'] += 167
+    assert c.post(base + '/rounds/0/submit', json={'answers':['']*8}).status_code == 200
     assert c.delete(base).status_code == 204
     assert c.get(base + '/next').status_code == 401
     with database.connect() as db:
@@ -189,7 +200,7 @@ def test_acclimation_is_server_enforced_and_survives_refresh(client):
     clock['now'] += 29
     assert c.get(url + '/next').json()['phase'] == 'acclimation'
     clock['now'] += 1
-    assert len(c.get(url + '/next').json()['pairs']) == 10
+    assert len(c.get(url + '/next').json()['pairs']) == 8
 
 
 def test_old_v2_language_migration_preserves_results(client, monkeypatch):
@@ -275,11 +286,11 @@ def test_recall_has_full_time_after_distraction_and_is_not_auto_submitted(client
     c.headers['X-Participant-Token'] = response['access_token']
     base = f'/api/participants/{pid}'
     c.post(base + '/rounds/start')
-    clock['now'] += 150.01  # acclimation (60) + learning (60) + distraction (30)
+    clock['now'] += 165.01  # acclimation (60) + learning (75) + distraction (30)
     recall = c.get(base + '/next').json()
     assert recall['phase'] == 'recall'
     assert 119 < recall['phase_end_at'] - recall['server_now'] <= 120
-    assert len(recall['words']) == 10
+    assert len(recall['words']) == 8
     with database.connect() as db:
         assert db.execute('SELECT COUNT(*) FROM study_results').fetchone()[0] == 0
     clock['now'] += 0.2
@@ -367,3 +378,105 @@ def test_reject_streamed_oversized_body_without_content_length(client):
     response = c.post('/api/participants', content=streamed,
                       headers={'Content-Type':'application/json'})
     assert response.status_code == 413, response.text
+
+
+def test_independent_randomized_order_and_completed_feedback(client):
+    c, clock = client
+    p = c.post('/api/participants', json={
+        'language':'nb','age_band':'18_24','gender':'prefer_not','consent':True
+    }).json()
+    pid = p['participant_id']
+    c.headers['X-Participant-Token'] = p['access_token']
+    path = f'/api/participants/{pid}'
+    assert 'review' not in c.get(path + '/next').json()
+    for i in range(3):
+        start = c.post(path + '/rounds/start').json()
+        assert start['phase'] == 'acclimation'
+        assert 'learning_order' not in start and 'recall_order' not in start
+        with database.connect() as db:
+            row = db.execute('SELECT learning_order,recall_order FROM study_rounds WHERE participant_id=? AND round_index=?',
+                             (pid,i)).fetchone()
+            learning_order, recall_order = map(json.loads, row)
+            assert sorted(learning_order) == sorted(recall_order) == list(range(8))
+            assert all(a != b for a,b in zip(learning_order,recall_order))
+        clock['now'] += 60
+        learning = c.get(path + '/next').json()
+        assert len(learning['pairs']) == 8
+        assert 'review' not in learning
+        assert c.post(path+'/rounds/start').json()['phase_end_at'] == learning['phase_end_at']
+        clock['now'] += 106
+        recall = c.get(path+'/next').json()
+        assert recall['phase'] == 'recall'
+        assert 'review' not in recall
+        visible = [x['word'] for x in learning['pairs']]
+        assert all(a != b for a,b in zip(visible,recall['words']))
+        by_word = {x['word']:x['meaning'] for x in learning['pairs']}
+        answers = [by_word[word] for word in recall['words']]
+        if i == 1: answers[0] = 'incorrect'
+        bad = c.post(path+f'/rounds/{i}/submit',json={'answers':answers,'math_attempts':2,'math_correct':3})
+        assert bad.status_code == 422
+        response = c.post(path+f'/rounds/{i}/submit',json={
+            'answers':answers,'math_attempts':5,'math_correct':4,
+        })
+        assert response.status_code == 200
+        assert response.json() == {'saved':True}
+        if i != 2:
+            assert 'review' not in c.get(path+'/next').json()
+    end = c.get(path+'/next').json()
+    assert end['finished']
+    assert [r['score'] for r in end['review']] == [8,7,8]
+    assert all(x['math_attempts']==5 and x['math_correct']==4 for x in end['review'])
+    assert end['review'][1]['items'][0]['correct'] is False
+    assert end['review'][1]['items'][0]['answer'] == 'incorrect'
+    assert end['review'][1]['items'][0]['expected']
+    assert c.get(path+'/next',headers={'X-Participant-Token':'invalid'}).status_code == 401
+
+
+def test_language_grading_and_shuffle_by_language():
+    for lang in words.LANGUAGES:
+        mapping = list(reversed(range(8)))
+        labels = words.learning_pairs(0,lang,mapping)
+        assert len(labels) == 8
+        assert words.grade(0,lang,[x['meaning'] for x in labels],mapping)[0] == 8
+        assert words.recall_words(0,mapping) == [x['word'] for x in labels]
+    with pytest.raises(ValueError):
+        words.grade(0,'en',['chair'],list(range(8)))
+    with pytest.raises(ValueError):
+        words.grade(0,'en',['']*8,[0]*8)
+
+
+def test_legacy_schema_migration_keeps_v22_results(tmp_path, monkeypatch):
+    import sqlite3
+    path = tmp_path / 'legacy_v22.db'
+    monkeypatch.setattr(database, 'DB_PATH', path)
+    database.init_db()
+    with database.connect() as db:
+        db.execute('''INSERT INTO study_participants
+            (id,language,age_band,gender,group_name,list_order,consented_at,created_at,protocol_version,token_hash)
+            VALUES (?,?,?,?,?,?,?,?,?,?)''',
+            ('old-session','en','18_24','prefer_not','A','[0,1,2]','old','old','2.2','old-hash'))
+        db.execute('''INSERT INTO study_rounds (participant_id,round_index,started_at,learning_order,recall_order)
+                      VALUES (?,?,?,?,?)''',('old-session',0,100,'[0,1,2,3,4,5,6,7]','[7,6,5,4,3,2,1,0]'))
+        db.execute('''INSERT INTO study_results (participant_id,round_index,condition,list_id,answers,score,max_score,
+             recall_seconds,hidden_count,submitted_late,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+            ('old-session',0,'WARM',0,'["stol"]',4,10,100,0,0,'old'))
+    # Simulate the pre-v2.3 fixed six-language CHECK constraint.
+    with sqlite3.connect(path) as db:
+        db.execute('PRAGMA foreign_keys=OFF')
+        db.execute('BEGIN IMMEDIATE')
+        db.execute('''CREATE TABLE legacy_participants (
+              id TEXT PRIMARY KEY,language TEXT NOT NULL CHECK(language IN ('nb','en','sv','de','fr','es')),
+              age_band TEXT NOT NULL, gender TEXT NOT NULL, group_name TEXT NOT NULL,
+              list_order TEXT NOT NULL, consented_at TEXT NOT NULL, created_at TEXT NOT NULL,
+              protocol_version TEXT NOT NULL DEFAULT '2.1', token_hash TEXT)''')
+        db.execute('INSERT INTO legacy_participants SELECT * FROM study_participants')
+        db.execute('DROP TABLE study_participants')
+        db.execute('ALTER TABLE legacy_participants RENAME TO study_participants')
+    database.init_db()
+    with database.connect() as db:
+        assert db.execute("SELECT score,max_score FROM study_results WHERE participant_id='old-session'").fetchone()[:] == (4,10)
+        assert db.execute("SELECT protocol_version FROM study_participants WHERE id='old-session'").fetchone()[0] == '2.2'
+        assert db.execute("SELECT 1 FROM study_participants").fetchone()
+    new = database.create_participant('ro','18_24','prefer_not')
+    assert new['group'] == 'A'  # Old sessions excluded from balancing
+    database.init_db()  # idempotent

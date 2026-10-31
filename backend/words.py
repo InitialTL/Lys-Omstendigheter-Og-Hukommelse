@@ -1,4 +1,4 @@
-"""Fixed, auditable stimuli. Each pilot list has ten distinct pronounceable nonwords.
+"""Fixed, auditable stimuli. Each pilot list has eight distinct pronounceable nonwords.
 
 These nonwords are designed to reduce *obvious* semantic cues, not to eliminate
 mnemonics. Validate language-specific accidental meanings and list difficulty
@@ -8,23 +8,20 @@ from __future__ import annotations
 import re
 import unicodedata
 
-LANGUAGES = ("nb", "en", "sv", "de", "fr", "es")
+LANGUAGES = ("nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro")
 
-# Five-letter, mostly consonant-vowel pseudowords, with no embedded object names.
-# A change in stimuli constitutes a new version of the experimental protocol.
+# Visibly and phonologically distinct pseudowords. This is a new pilot
+# protocol, not a validated normed psychometric test. Do not mix V2.2 scores.
 LISTS: tuple[tuple[tuple[str, str], ...], ...] = (
-    (("zevup", "chair"), ("fekuz", "key"), ("vuzem", "apple"),
-     ("jopiz", "bicycle"), ("zunef", "lamp"), ("kivez", "book"),
-     ("puzek", "spoon"), ("vezop", "window"), ("zivuk", "shoe"),
-     ("fuzep", "cup")),
-    (("vakez", "clock"), ("zepik", "bridge"), ("kuzav", "flower"),
-     ("zefuk", "table"), ("pazev", "pencil"), ("juzek", "door"),
-     ("zopuv", "basket"), ("vezik", "mirror"), ("fuzak", "bottle"),
-     ("zikip", "hat")),
-    (("vuzop", "umbrella"), ("pezuk", "candle"), ("zifek", "towel"),
-     ("kozev", "plate"), ("jafuz", "glove"), ("zuvik", "ladder"),
-     ("pezav", "pillow"), ("vizuk", "fork"), ("fekiz", "scissors"),
-     ("zokep", "camera")),
+    (("maviko", "chair"), ("tulena", "key"), ("boremi", "apple"),
+     ("nupasi", "bicycle"), ("kevora", "lamp"), ("falitu", "book"),
+     ("sedani", "spoon"), ("pumelo", "window")),
+    (("dovika", "clock"), ("nemaru", "bridge"), ("kasipo", "flower"),
+     ("reluna", "table"), ("tofeni", "pencil"), ("bajero", "door"),
+     ("visaku", "basket"), ("lomeri", "mirror")),
+    (("terupo", "umbrella"), ("mikaso", "candle"), ("foneli", "towel"),
+     ("razuki", "plate"), ("benavo", "glove"), ("sufari", "ladder"),
+     ("peliko", "pillow"), ("votema", "fork")),
 )
 
 # The first label is displayed; all supplied variants count as correct.
@@ -63,6 +60,38 @@ TARGETS: dict[str, dict[str, tuple[str, ...]]] = {
 }
 
 
+# Additional study languages. Labels below are pilot vocabulary, not validated
+# against native-speaker difficulty. No remote translation API is called.
+_ADDITIONAL_LABELS = {
+    'chair': (('sedia',), ('cadeira',), ('stoel',), ('stol',), ('krzesło',), ('scaun',)),
+    'key': (('chiave',), ('chave',), ('sleutel',), ('nøgle',), ('klucz',), ('cheie',)),
+    'apple': (('mela',), ('maçã',), ('appel',), ('æble',), ('jabłko',), ('măr',)),
+    'bicycle': (('bicicletta','bici'), ('bicicleta',), ('fiets',), ('cykel',), ('rower',), ('bicicletă',)),
+    'lamp': (('lampada',), ('lâmpada',), ('lamp',), ('lampe',), ('lampa',), ('lampă',)),
+    'book': (('libro',), ('livro',), ('boek',), ('bog',), ('książka',), ('carte',)),
+    'spoon': (('cucchiaio',), ('colher',), ('lepel',), ('ske',), ('łyżka',), ('lingură',)),
+    'window': (('finestra',), ('janela',), ('raam',), ('vindue',), ('okno',), ('fereastră',)),
+    'clock': (('orologio',), ('relógio',), ('klok',), ('ur',), ('zegar',), ('ceas',)),
+    'bridge': (('ponte',), ('ponte',), ('brug',), ('bro',), ('most',), ('pod',)),
+    'flower': (('fiore',), ('flor',), ('bloem',), ('blomst',), ('kwiat',), ('floare',)),
+    'table': (('tavolo',), ('mesa',), ('tafel',), ('bord',), ('stół',), ('masă',)),
+    'pencil': (('matita',), ('lápis',), ('potlood',), ('blyant',), ('ołówek',), ('creion',)),
+    'door': (('porta',), ('porta',), ('deur',), ('dør',), ('drzwi',), ('ușă',)),
+    'basket': (('cesto',), ('cesto',), ('mand',), ('kurv',), ('kosz',), ('coș',)),
+    'mirror': (('specchio',), ('espelho',), ('spiegel',), ('spejl',), ('lustro',), ('oglindă',)),
+    'umbrella': (('ombrello',), ('guarda-chuva',), ('paraplu',), ('paraply',), ('parasol',), ('umbrelă',)),
+    'candle': (('candela',), ('vela',), ('kaars',), ('stearinlys',), ('świeca',), ('lumânare',)),
+    'towel': (('asciugamano',), ('toalha',), ('handdoek',), ('håndklæde',), ('ręcznik',), ('prosop',)),
+    'plate': (('piatto',), ('prato',), ('bord',), ('tallerken',), ('talerz',), ('farfurie',)),
+    'glove': (('guanto',), ('luva',), ('handschoen',), ('handske',), ('rękawiczka',), ('mănușă',)),
+    'ladder': (('scala',), ('escada',), ('ladder',), ('stige',), ('drabina',), ('scară',)),
+    'pillow': (('cuscino',), ('travesseiro',), ('kussen',), ('pude',), ('poduszka',), ('pernă',)),
+    'fork': (('forchetta',), ('garfo',), ('vork',), ('gaffel',), ('widelec',), ('furculiță',)),
+}
+for _key, _items in _ADDITIONAL_LABELS.items():
+    TARGETS[_key].update(dict(zip(LANGUAGES[6:], _items)))
+
+
 def normalize(value: str) -> str:
     value = unicodedata.normalize("NFKD", value.strip().casefold())
     value = "".join(c for c in value if not unicodedata.combining(c))
@@ -70,22 +99,37 @@ def normalize(value: str) -> str:
     return re.sub(r"\s+", " ", value)
 
 
-def learning_pairs(list_id: int, language: str) -> list[dict[str, str]]:
-    return [{"word": word.upper(), "meaning": TARGETS[key][language][0]}
-            for word, key in LISTS[list_id]]
+def learning_pairs(list_id: int, language: str, order: list[int] | None = None) -> list[dict[str, str]]:
+    items = LISTS[list_id]
+    return [{"word": items[i][0].upper(), "meaning": TARGETS[items[i][1]][language][0]}
+            for i in (order if order is not None else range(len(items)))]
 
 
-def recall_words(list_id: int) -> list[str]:
-    return [word.upper() for word, _ in LISTS[list_id]]
+def recall_words(list_id: int, order: list[int] | None = None) -> list[str]:
+    items = LISTS[list_id]
+    return [items[i][0].upper() for i in (order if order is not None else range(len(items)))]
 
 
-def grade(list_id: int, language: str, answers: list[str]) -> tuple[int, list[bool]]:
+def grade(list_id: int, language: str, answers: list[str], order: list[int] | None = None) -> tuple[int, list[bool]]:
+    items = LISTS[list_id]
+    indices = order if order is not None else list(range(len(items)))
+    if len(answers) != len(items) or sorted(indices) != list(range(len(items))):
+        raise ValueError('Invalid answer count or recall ordering')
     correct = [normalize(answer) in {
-        normalize(variant) for variant in TARGETS[key][language]
-    } for (_, key), answer in zip(LISTS[list_id], answers)]
+        normalize(variant) for variant in TARGETS[items[i][1]][language]
+    } for i, answer in zip(indices, answers)]
     return sum(correct), correct
 
 
-assert len(LISTS) == 3 and all(len(list_) == 10 for list_ in LISTS)
-assert len({word for row in LISTS for word, _ in row}) == 30
-assert all(set(labels) == set(LANGUAGES) for labels in TARGETS.values())
+def answer_review(list_id: int, language: str, answers: list[str], order: list[int]) -> list[dict]:
+    _, graded = grade(list_id, language, answers, order)
+    items = LISTS[list_id]
+    return [{"word": items[i][0].upper(), "answer": answer,
+             "expected": TARGETS[items[i][1]][language][0], "correct": okay}
+            for i, answer, okay in zip(order, answers, graded)]
+
+
+assert len(LISTS) == 3 and all(len(list_) == 8 for list_ in LISTS)
+assert len({word for row in LISTS for word, _ in row}) == 24
+# All actual stimuli must have a validated label entry for every study language.
+assert all(set(TARGETS[key]) == set(LANGUAGES) for row in LISTS for _,key in row)

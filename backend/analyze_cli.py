@@ -7,7 +7,7 @@ import database
 
 def main():
     all_rows = database.export_rows()
-    rows = [row for row in all_rows if row["protocol_version"] == "2.1"]
+    rows = [row for row in all_rows if row["protocol_version"] == database.PROTOCOL_VERSION]
     if len(all_rows) > len(rows):
         print(f"Eldre pilotresultater er holdt utenfor: {len(all_rows) - len(rows)} runder.")
     if not rows:
