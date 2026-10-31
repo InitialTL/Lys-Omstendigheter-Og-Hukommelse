@@ -1,23 +1,28 @@
-# Hukommelse LM — versjon 2.0
+# Hukommelse LM — versjon 2.1
 
-En komplett **React + TypeScript / FastAPI / SQLite**-app for et fjernbasert pilotforsøk om hvorvidt varme, kalde og mørke **skjermbakgrunner** påvirker læring av nye ordassosiasjoner. Nettsiden er på norsk og engelsk og har responsivt design.
+En komplett **React + TypeScript / FastAPI / SQLite**-app for et fjernbasert pilotforsøk om hvorvidt varme, kalde og mørke **skjermbakgrunner** påvirker læring av nye ordassosiasjoner. Nettsiden er tilgjengelig på norsk, engelsk, svensk, tysk, fransk og spansk og har responsivt design.
 
 > **Forskningspresisjon:** Dette er et forsøk med presise **sRGB/HEX-verdier**, ikke en kalibrert måling av 3000 K, 10000 K, lux eller lys som når netthinnen. Svart bakgrunn gir mye lavere lysmengde enn fargebakgrunnene. Den forskjellen må omtales som en begrensning i rapporten. Dette er en teknisk komplett pilot, men **ikke** en ferdig vitenskapelig validert metode eller automatisk godkjent for offentlig forskning.
 
 ## Funksjoner
 
-- Registrering: språk (norsk/engelsk), aldersgruppe, valgfritt kjønn og eksplisitt samtykke.
+- Registrering: språk (norsk/engelsk/svensk/tysk/fransk/spansk), aldersgruppe, valgfritt kjønn og eksplisitt samtykke.
 - Lokal lagring av deltaker-ID, valgt språk og ufullstendige svar for gjenopptakelse.
-- Enkel kalibreringsveiledning: mørkt rom, konstant skjermlysstyrke, fargejustering av, fullskjerm og kontrastkontroll.
+- Kalibreringsveiledning for Windows, macOS, Linux, iOS, Android og eksterne skjermer; ingen musikk eller lyd, fast skjermlysstyrke og fargejustering av.
+- Svak lys-på-lys/mørk-på-mørk kontrastkontroll: kun en subjektiv tilpasning, **ikke** et validert lysmåleinstrument.
+- Fullskjermknappen veksler mellom å gå inn i og ut av fullskjerm og viser feilmelding om nettleseren blokkerer funksjonen.
 - Tre bakgrunnsfarger: `WARM #D9AA91`, `COOL #9BB6E4`, `DARK #080B11`.
 - Gruppefordeling A/B/C med motbalansert lysrekkefølge, pluss seks motbalanserte ordliste-rekkefølger **innen hver gruppe**.
-- Hver runde: 15 sekunder tilvenning, 60 sekunder memorering, 30 sekunder regnedistraksjon og maks 120 sekunder fri gjenhenting.
+- Hver runde: **60 sekunder tilvenning med bare skjermfarge og nedtelling**, 60 sekunder memorering, 30 sekunder regnedistraksjon og maks 120 sekunder fri gjenhenting.
 - Tidsgrenser fra serveren: en refresh nullstiller ikke memoreringstiden; fasen oppdateres etter serverklokken.
-- 3 × 10 håndlagde, unike kunstige ord med fysiske objekter som fasit, på norsk og engelsk.
+- 3 × 10 nye kunstige ord med færre åpenbare semantiske assosiasjoner og faste, språklig kvalitetssikrede objektnavn på seks språk. Verifiser likevel ordlikhet i en pilot.
 - Scoring og fasit bare på serveren, SQLite-lagring av resultater, tidsbruk og antall ganger fanen ble skjult.
 - Sikker CSV-eksport med lokal kommandolinje eller et beskyttet administrasjonsendepunkt.
+- Deltaker-ID kombineres med et separat 256-bit tilgangstoken. Bare SHA-256-hashen lagres på serveren. API-et krever tokenet for å lese, starte, levere og slette deltakerdata.
+- API- og nettlesersikkerhet: ingen CORS-utvidelse, sikre responsoverskrifter, `no-store`, restriktiv CSP ved produksjonsservering og enkel begrensning av antall registreringer. Bruk i tillegg en HTTPS-reverse proxy med rate limiting ved offentlig publisering.
 - Tilbaketrekking av samtykke: deltakeren kan slette alle sine **nye** studiedata via nettsiden.
-- **Ingen av de gamle `participants`- eller `experiment_results`-tabellene blir endret eller slettet.**
+- **Ingen av de gamle `participants`- eller `experiment_results`-tabellene blir endret eller slettet.** Tidligere V2.0-deltakere arkiveres som egen protokollversjon. De må registrere seg på nytt for å teste V2.1; tidligere resultater beholdes, men blandes ikke automatisk med V2.1-analysen.
+- `backend/results.db` og `.pyc`-filer skal ikke lagres i Git. Dersom de tidligere ble sporet, må de fjernes fra Git-indeksen; tidligere commits kan fortsatt inneholde kopier.
 
 ## Slik starter du lokalt (Windows PowerShell)
 
@@ -55,7 +60,7 @@ cd ../backend
 python -m uvicorn server:app --host 127.0.0.1 --port 8000
 ```
 
-Når `frontend/dist` finnes, serverer FastAPI den ferdige nettsiden fra `http://127.0.0.1:8000/`. For offentlig publisering må dette settes bak en HTTPS-reverse proxy / egnet host. Ikke eksponer en utviklingsserver med `--reload` på internett.
+Åpne først `http://127.0.0.1:5173` i utviklingsmodus. Når `frontend/dist` finnes, serverer FastAPI den ferdige nettsiden fra `http://127.0.0.1:8000/`. For offentlig publisering må dette settes bak en HTTPS-reverse proxy / egnet host. Ikke eksponer en utviklingsserver med `--reload` på internett.
 
 ## Oppdater ditt eksisterende GitHub-prosjekt
 
@@ -109,7 +114,7 @@ Exporten inneholder pseudonyme UUID-er, språk, alder, ev. kjønn, gruppe, ordli
 
 Les [docs/PROTOCOL.md](docs/PROTOCOL.md) før du rekrutterer deltakere. Dette er en pilot. Du må gjennomføre en separat pilot for å undersøke ordlistenes vanskelighetsgrad, lesehastighet, språkforskjeller, tak-/gulveffekter og skjermfargenes luminans. Planlegg statistikken før datainnsamling. Avklar samtykkekrav, personvern og eventuelle krav til foresatte eller skole før rekruttering av mindreårige.
 
-Den nye løsningen inkluderer **ikke Google Translate API**. Oversettelsene av de 30 objektene er gjennomgåtte, faste norske og engelske ord. Dette gjør at resultatene ikke avhenger av ustabile oversettelser, Google-kostnader eller en ekstern API-nøkkel. Nye språk må kvalitetssikres separat før de brukes.
+Den nye løsningen inkluderer **ikke Google Translate API**. Den støtter seks nøye avgrensede språk med faste oversettelser av 30 objektord. Å støtte alle verdens språk krever oversettelse og kvalitetssikring av både grensesnitt og svarvarianter. Dette gjør at resultatene ikke avhenger av ustabile oversettelser, Google-kostnader eller en ekstern API-nøkkel. Nye språk må kvalitetssikres separat før de brukes.
 
 ### Viktige begrensninger
 
@@ -121,3 +126,11 @@ Den nye løsningen inkluderer **ikke Google Translate API**. Oversettelsene av d
 - Fullskjerm kan avvises av nettleseren. Avbrutt/flyttet nettleserfane registreres grovt, men dette er ikke juksesikring.
 - Offentlig publisering krever ekstern hosting med HTTPS, backup, sikker konfigurasjon, rate limiting og gjennomgang av personvern. Ingen data sendes til en tredjeparts oversettelsestjeneste.
 
+
+## Sikkerhet og pilotversjon 2.1
+
+- Husk å oppdatere fra `feature/hukommelse-lm-v2` (utviklingsgrenen) når endringene er publisert på GitHub.
+- **Gammel deltakelse:** V2.0-registreringer har ikke tilgangstoken og er ikke kompatible med V2.1. På feilsiden kan du velge «Start på nytt med denne versjonen»; tidligere data forblir lagret.
+- 60 sekunder tilvenning må gjennomføres helt før ordparene blir tilgjengelige. Tiden håndheves av serverklokken og kan ikke startes på nytt ved refresh.
+- Ved offentlig publisering må serveren kjøre bak HTTPS, med backups, begrensede nettverkstilganger, ekstern rate limiting og plan for sletting av data. Ikke publiser databasen eller administrasjonstokenet. UUID og tilgangstoken er autentisering, men ikke fullverdig brukeradministrasjon.
+- Ta sikkerhetskopi før databaseoppgradering. En eksisterende V2.0-database migreres i en transaksjon: gamle deltaker-ID-er og resultater beholdes, men den nye protokollen tildeler nye ID-er og nye tilgangstokener.

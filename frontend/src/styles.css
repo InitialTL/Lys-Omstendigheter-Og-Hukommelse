@@ -188,3 +188,44 @@ h1 em { color: #59917e; font-style: normal; }
 
 .withdraw-link { background:transparent;border:0;color:#628b7c;font-size:12px;text-decoration:underline;text-underline-offset:3px;padding:8px;margin-top:12px; }
 .study-withdraw {margin:0;color:#fff;text-shadow:0 1px 4px #0009;opacity:.9;}
+
+/* V2.1: the acclimation screen contains only the stimulus color and timer.
+   No card, logo, navigation or explanatory text alters light exposure. */
+.acclimation-screen {
+  width: 100%;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  color: #15202b;
+}
+.acclimation-screen.acclimation-dark { color: #f2f4f6; }
+.acclimation-timer {
+  font: 600 clamp(76px, 12vw, 156px)/1 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: -.055em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  user-select: none;
+}
+.fullscreen-control { display: flex; flex-direction: column; gap: 6px; }
+.fullscreen-control > .btn { white-space: nowrap; }
+.fullscreen-control > span { font-size: 11px; color: #ad543f; line-height: 1.4; }
+.study-header .fullscreen-control > .btn { background:#16232ee6; color:#fff; border-color:#536170; font-size:11px; padding:9px 12px; }
+.study-header .fullscreen-control > span { color:#fbd1c7; max-width:230px; }
+.swatch-row { border-radius: 12px; }
+.swatch-light { background: #fff; }
+.swatch-dark { background: #000; }
+.shape-on-white { font: normal 78px/1 Georgia,serif; color: #f0f0f0; }
+.shape-on-black { font: normal 78px/1 Georgia,serif; color: #101010; }
+.os-guide { display: flex; flex-direction: column; gap: 9px; padding-top: 20px; margin-top: 18px; border-top:1px solid #e4ebe7; }
+.os-guide label { font-size: 10px; font-weight: 800; letter-spacing: .12em; color:#3e8d7b; }
+.os-guide select { border:1px solid #d2ded8; border-radius:8px; padding:11px; background:#fff; color:#24352e; }
+.os-guide b { font-size:13px; margin-top:7px; }
+.os-guide p { margin:0; font-size:12px; line-height:1.65; }
+@media (max-width:540px) {
+  .study-header-right { gap:5px; }
+  .study-header .fullscreen-control > .btn { width:40px; min-width:40px; padding:9px; font-size:0; gap:0; }
+  .study-header .fullscreen-control > .btn svg { width:18px; height:18px; }
+  .acclimation-timer { font-size: clamp(74px, 18vw, 110px); }
+}

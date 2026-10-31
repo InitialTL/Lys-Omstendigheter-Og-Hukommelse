@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import {
   ArrowRight, Brain, Check, CheckCircle2, Clock3, Eye,
-  Focus, Lightbulb, LockKeyhole, Monitor, Moon, RefreshCw,
+  Focus, Lightbulb, LockKeyhole, Monitor, Moon, RefreshCw, Maximize, Minimize, VolumeX,
   ShieldCheck, Sparkles, Sun, ThermometerSun,
 } from 'lucide-react';
-import { api, COLORS } from './api';
+import { api, COLORS, storeParticipantToken, clearParticipantToken } from './api';
+import { LANGUAGE_NAMES, OS_HELP, OS_NAMES, translate } from './i18n';
+import type { OSName } from './i18n';
 import type { Condition, Language, Pair, Registration, StudyState } from './api';
 
 const PARTICIPANT_KEY = 'lm_v2_participant';
@@ -32,7 +34,7 @@ function Header({ lang, page }: { lang: Language; page?: string }) {
   return <header className="topbar">
     <Brand />
     <div className="topbar-right">
-      <span className="research-label"><span className="status-dot" /> {lang === 'nb' ? 'Forskningsprosjekt' : 'Research study'}</span>
+      <span className="research-label"><span className="status-dot" /> {translate('Forskningsprosjekt', 'Research study', lang)}</span>
       {page && <span className="header-page">{page}</span>}
     </div>
   </header>;
@@ -50,7 +52,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
   const [age, setAge] = useState('16_17');
   const [gender, setGender] = useState('prefer_not');
   const [consent, setConsent] = useState(false);
-  const t = (nb: string, en: string) => lang === 'nb' ? nb : en;
+  const t = (nb: string, en: string) => translate(nb, en, lang);
   return <div className="site-shell">
     <Header lang={lang} />
     <main className="intro-layout">
@@ -75,10 +77,10 @@ function Intro({ lang, setLang, onRegister, busy, error }:
         <div className="enroll-head"><div className="enroll-icon"><Lightbulb size={22}/></div><div><span className="section-kicker">{t('DELTA I STUDIEN', 'PARTICIPATE')}</span><h2>{t('La oss begynne', 'Get started')}</h2></div></div>
         <p className="form-intro">{t('Svar på noen korte spørsmål før vi starter. Du kan når som helst trekke samtykket og slette dataene dine.',
           'Answer a few brief questions before starting. You may withdraw consent and delete your data at any time.')}</p>
-        <label className="field"><span>{t('Språk', 'Language')}</span><div className="segmented">
-          <button type="button" className={lang === 'nb' ? 'selected' : ''} onClick={() => setLang('nb')}>Norsk</button>
-          <button type="button" className={lang === 'en' ? 'selected' : ''} onClick={() => setLang('en')}>English</button>
-        </div></label>
+        <label className="field"><span>{t('Språk', 'Language')}</span>
+          <select value={lang} onChange={e => setLang(e.target.value as Language)}>
+            {Object.entries(LANGUAGE_NAMES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          </select></label>
         <label className="field"><span>{t('Alder', 'Age')}</span><select value={age} onChange={event => setAge(event.target.value)}>
           <option value="16_17">16–17</option><option value="18_24">18–24</option><option value="25_44">25–44</option>
           <option value="45_plus">45+</option><option value="prefer_not">{t('Ønsker ikke å oppgi', 'Prefer not to say')}</option>
@@ -107,17 +109,44 @@ function Intro({ lang, setLang, onRegister, busy, error }:
 
 function LayersIcon() { return <div className="layers-icon"><span/><span/><span/></div>; }
 function Footer({ lang }: { lang: Language }) {
-  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{lang === 'nb' ? 'En studie av skjermfarger og ordhukommelse' : 'A study of screen color and word memory'}</span><span>RESEARCH EDITION 2.0</span></footer>;
+  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.0</span></footer>;
+}
+
+function FullscreenToggle({ lang }: { lang: Language }) {
+  const [fullscreen, setFullscreen] = useState(() => Boolean(document.fullscreenElement));
+  const [failure, setFailure] = useState(false);
+  const t = (nb: string, en: string) => translate(nb, en, lang);
+  useEffect(() => {
+    const listener = () => { setFullscreen(Boolean(document.fullscreenElement)); setFailure(false); };
+    document.addEventListener('fullscreenchange', listener);
+    return () => document.removeEventListener('fullscreenchange', listener);
+  }, []);
+  const toggle = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (document.fullscreenEnabled && document.documentElement.requestFullscreen)
+        await document.documentElement.requestFullscreen();
+      else setFailure(true);
+    } catch { setFailure(true); }
+  };
+  return <div className="fullscreen-control">
+    <Button secondary onClick={() => void toggle()}>
+      {fullscreen ? <Minimize size={17}/> : <Maximize size={17}/>}
+      {fullscreen ? t('Avslutt fullskjerm','Exit fullscreen') : t('Bruk fullskjerm','Try fullscreen')}
+    </Button>
+    {failure && <span role="status">{t('Fullskjerm støttes ikke her. Prøv nettleserens eget valg.', 'Fullscreen is not supported here. Use the browser’s fullscreen control if available.')}</span>}
+  </div>;
 }
 
 function Calibration({ lang, onNext }: { lang: Language; onNext: () => void }) {
-  const [checks, setChecks] = useState([false, false, false]);
-  const t = (nb: string, en: string) => lang === 'nb' ? nb : en;
+  const [checks, setChecks] = useState([false, false, false, false]);
+  const [osName, setOSName] = useState<OSName>('windows');
+  const t = (nb: string, en: string) => translate(nb, en, lang);
   const toggle = (i: number) => setChecks(old => old.map((v,j) => i === j ? !v : v));
   return <div className="site-shell"><Header lang={lang} page={t('Forberedelser', 'Preparation')}/>
     <main className="calibration-layout">
       <div className="eyebrow"><Monitor size={16}/>{t('TRINN 1 AV 2', 'STEP 1 OF 2')}</div>
-      <h1 className="page-title">{t('Gjør skjermen klar', 'Prepare your screen')}</h1>
+      <h1 className="page-title">{t('Gjør skjermen klar for forsøket', 'Prepare your screen for the study')}</h1>
       <p className="page-description">{t('For at forsøket skal bli så sammenlignbart som mulig, bør alle bruke samme innstillinger gjennom de tre rundene.',
         'To make results as comparable as possible, keep the same settings throughout all three rounds.')}</p>
       <div className="calibration-grid">
@@ -125,22 +154,35 @@ function Calibration({ lang, onNext }: { lang: Language; onNext: () => void }) {
           {[
             [t('Sitt i et mørkt eller svakt opplyst rom', 'Use a dark or dimly lit room'), t('Behold den samme rombelysningen gjennom hele forsøket.', 'Keep room lighting unchanged throughout the study.')],
             [t('Slå av automatisk farge og lysstyrke', 'Turn off automatic color and brightness'), t('Deaktiver nattmodus, True Tone, Night Shift og automatisk lysstyrke.', 'Disable night mode, True Tone, Night Shift, and automatic brightness.')],
-            [t('Velg fast skjermlysstyrke', 'Set a fixed screen brightness'), t('Bruk omtrent 70 % dersom det er behagelig. Ikke endre den underveis.', 'Aim for around 70% if comfortable. Do not change it later.')],
-          ].map(([title, desc], i) => <button type="button" className={`check-tile ${checks[i] ? 'checked' : ''}`} onClick={() => toggle(i)} key={title}>
-            <span className="check-square">{checks[i] && <Check size={17}/>}</span><span><b>{title}</b><small>{desc}</small></span>
+            [t('Still inn en fast skjermlysstyrke', 'Set a fixed screen brightness'), t('Juster til begge svake symboler så vidt er synlige. Ikke endre lysstyrken underveis.', 'Adjust brightness until the two low-contrast symbols are just visible. Keep that setting for all rounds.')],
+            [t('Slå av musikk og annen lyd', 'Mute music and other audio'), t('Stopp musikk, video, varslinger og lyd i hodetelefoner under hele forsøket.', 'Turn off music, videos, notifications and headphones with audio during the entire study.')],
+          ].map(([title, desc], i) => <button type="button" className={`check-tile ${checks[i] ? 'checked' : ''}`} onClick={() => toggle(i)} key={title} aria-pressed={checks[i]}>
+            <span className="check-square">{checks[i] ? <Check size={17}/> : i === 3 ? <VolumeX size={15}/> : null}</span><span><b>{title}</b><small>{desc}</small></span>
           </button>)}
-          <Button onClick={() => document.documentElement.requestFullscreen?.().catch(() => undefined)} secondary><Monitor size={17}/> {t('Prøv fullskjerm', 'Try fullscreen')}</Button>
+          <FullscreenToggle lang={lang}/>
         </div>
         <div className="calibration-visual">
           <div className="section-kicker">{t('KONTRASTKONTROLL', 'CONTRAST CHECK')}</div>
-          <h3>{t('Ser du begge symbolene?', 'Can you see both symbols?')}</h3>
-          <p>{t('Kontroller at du kan se figurene tydelig uten å myse. Dette er ikke en måling av faktisk lysstyrke.',
-            'Make sure both symbols are clearly visible without squinting. This does not measure actual brightness.')}</p>
-          <div className="swatch-row"><div className="swatch-light"><span className="shape-dark">✦</span></div><div className="swatch-dark"><span className="shape-light">✦</span></div></div>
-          <div className="calibration-hint"><Eye size={17}/>{t('La skjermen ha samme lysstyrke under alle rundene.', 'Keep the brightness unchanged for all rounds.')}</div>
+          <h3>{t('Ser du så vidt begge symbolene?', 'Can you barely see both symbols?')}</h3>
+          <p>{t('Symbolet på hvitt er litt mørkere, og symbolet på svart er litt lysere. Endre lysstyrken til begge så vidt er synlige.',
+            'The symbol on white is slightly darker; the symbol on black is slightly lighter. Change brightness until both are barely visible, not clearly prominent.')}</p>
+          <div className="swatch-row" role="img" aria-label="Subtle white-on-white and black-on-black contrast calibration">
+            <div className="swatch-light"><span className="shape-on-white" aria-hidden="true">✦</span></div>
+            <div className="swatch-dark"><span className="shape-on-black" aria-hidden="true">✦</span></div>
+          </div>
+          <div className="calibration-hint"><Eye size={17}/>{t('Behold samme lysstyrke i alle rundene. Dette er en subjektiv test, ikke en kalibrert lysmåling.',
+            'Keep the brightness unchanged for all rounds. This is only a subjective check, not calibrated luminance measurement.')}</div>
+          <div className="os-guide">
+            <label htmlFor="study-os">{t('OPERATIVSYSTEM', 'OPERATING SYSTEM')}</label>
+            <select id="study-os" value={osName} onChange={e => setOSName(e.target.value as OSName)}>
+              {OS_NAMES.map(os => <option key={os} value={os}>{({windows:'Windows',macos:'macOS',linux:'Linux',ios:'iOS / iPadOS',android:'Android',external:'External monitor / TV'} as Record<OSName,string>)[os]}</option>)}
+            </select>
+            <b>{t('Slik endrer du skjermlysstyrken', 'How to change brightness')}</b>
+            <p>{OS_HELP[osName][lang]}</p>
+          </div>
         </div>
       </div>
-      <div className="calibration-action"><span>{checks.filter(Boolean).length}/3 {t('punkter fullført', 'checks completed')}</span>
+      <div className="calibration-action"><span>{checks.filter(Boolean).length}/4 {t('punkter fullført', 'checks completed')}</span>
         <Button onClick={onNext} disabled={!checks.every(Boolean)}>{t('Jeg er klar', 'I am ready')} <ArrowRight size={18}/></Button></div>
     </main><Footer lang={lang}/>
   </div>;
@@ -174,7 +216,7 @@ function Clock({ seconds, total, lang }: { seconds: number; total: number; lang:
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
   const remain = (seconds % 60).toString().padStart(2, '0');
   const pct = Math.min(100, Math.max(0, seconds / total * 100));
-  return <div className="clock"><div className="clock-heading"><span><Clock3 size={17}/> {lang === 'nb' ? 'Tid igjen' : 'Time remaining'}</span><b className={seconds <= 10 ? 'urgent' : ''}>{minutes}:{remain}</b></div>
+  return <div className="clock"><div className="clock-heading"><span><Clock3 size={17}/> {translate('Tid igjen', 'Time remaining', lang)}</span><b className={seconds <= 10 ? 'urgent' : ''}>{minutes}:{remain}</b></div>
     <div className="progress-track"><div className="progress-fill" style={{width: `${pct}%`}}/></div>
   </div>;
 }
@@ -182,22 +224,7 @@ function Clock({ seconds, total, lang }: { seconds: number; total: number; lang:
 function Setup({ condition, index, lang, onStart, busy }: {
   condition: Condition; index: number; lang: Language; onStart: () => Promise<void>; busy: boolean;
 }) {
-  const [countTo, setCountTo] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
-  const called = useRef(false);
-  const t = (nb: string, en: string) => lang === 'nb' ? nb : en;
-  useEffect(() => {
-    if (!countTo) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 150);
-    return () => window.clearInterval(timer);
-  }, [countTo]);
-  const seconds = countTo ? Math.max(0, Math.ceil((countTo - now) / 1000)) : 15;
-  useEffect(() => {
-    if (countTo && seconds === 0 && !called.current) {
-      called.current = true;
-      onStart().catch(() => { called.current = false; setCountTo(null); });
-    }
-  }, [countTo, seconds, onStart]);
+  const t = (nb: string, en: string) => translate(nb, en, lang);
   const label = LABELS[condition];
   return <div className="study-center study-setup">
     <div className="pill"><ConditionIcon condition={condition} size={16}/>{t('RUNDE', 'ROUND')} {index + 1} / 3</div>
@@ -205,20 +232,27 @@ function Setup({ condition, index, lang, onStart, busy }: {
     <h1>{t(label.nb, label.en)}</h1>
     <p>{t(label.descriptionNb, label.descriptionEn)} · {COLORS[condition]}</p>
     <div className="instruction-card"><div className="instruction-icon"><Focus size={22}/></div><div>
-      <b>{t('Se på skjermen og tilpass deg lysmiljøet', 'Look at the screen and adapt to the color')}</b>
-      <span>{t('Når du starter, får du 15 sekunder tilvenning før ordparene vises. Ikke endre skjermens lysstyrke.',
-        'After starting, allow 15 seconds to adapt before the word pairs appear. Do not adjust screen brightness.')}</span>
+      <b>{t('Se på skjermen og venn deg til fargen', 'Look at the screen and adapt to the color')}</b>
+      <span>{t('I 60 sekunder ser du bare en farge og en nedtelling. Ikke endre skjermens lysstyrke.',
+        'You will see only the color and a timer for 60 seconds. Do not change your screen brightness.')}</span>
     </div></div>
-    {countTo ? <div className="ready-timer"><div className="count-number">{seconds}</div><span>{t('Tilvenning før memorering', 'Adaptation before memorizing')}</span>
-      <div className="mini-track"><div style={{width: `${seconds / 15 * 100}%`}}/></div></div> :
-      <Button disabled={busy} onClick={() => { called.current = false; setCountTo(Date.now() + 15_000); }}>
-        {t('Start denne runden', 'Start this round')} <ArrowRight size={18}/>
-      </Button>}
+    <Button disabled={busy} onClick={() => void onStart()}>
+      {t('Start denne runden', 'Start this round')} <ArrowRight size={18}/>
+    </Button>
   </div>;
 }
 
+function Acclimation({ seconds, condition }: { seconds: number; condition: Condition }) {
+  return <main className={`acclimation-screen acclimation-${condition.toLowerCase()}`}
+    aria-label="60-second screen color adaptation" style={{ backgroundColor: COLORS[condition] }}>
+    <div className="acclimation-timer" role="timer" aria-live="off" aria-label={`${seconds} seconds remaining`}>
+      {String(Math.floor(seconds / 60)).padStart(2,'0')}:{String(seconds % 60).padStart(2,'0')}
+    </div>
+  </main>;
+}
+
 function Learning({ pairs, seconds, lang }: { pairs: Pair[]; seconds: number; lang: Language }) {
-  const t = (nb: string, en: string) => lang === 'nb' ? nb : en;
+  const t = (nb: string, en: string) => translate(nb, en, lang);
   return <div className="phase-main"><div className="phase-tag"><Brain size={16}/>{t('MEMORERING', 'MEMORIZATION')}</div>
     <h1>{t('Husk disse ordparene', 'Remember these word pairs')}</h1>
     <p>{t('Du har 60 sekunder. Prøv å huske hvilket objekt hvert kunstig ord betyr.',
@@ -242,7 +276,7 @@ function Distraction({ seconds, lang }: { seconds: number; lang: Language }) {
   const [value, setValue] = useState('');
   const [correct, setCorrect] = useState(0);
   const [attempts, setAttempts] = useState(0);
-  const t = (nb: string, en: string) => lang === 'nb' ? nb : en;
+  const t = (nb: string, en: string) => translate(nb, en, lang);
   const answer = () => {
     if (!value.trim()) return;
     setAttempts(v => v + 1);
@@ -277,7 +311,7 @@ function Recall({ state, seconds, lang, id, onSubmit, busy, error }: {
   });
   const submitted = useRef(false);
   const autoAttempted = useRef(false);
-  const t = (nb: string, en: string) => lang === 'nb' ? nb : en;
+  const t = (nb: string, en: string) => translate(nb, en, lang);
   useEffect(() => { localStorage.setItem(draftKey(id,index), JSON.stringify(answers)); }, [answers, id, index]);
   const submit = useCallback(async () => {
     if (submitted.current || busy || words.length !== 10) return;
@@ -321,7 +355,7 @@ function Study({ state, offsetSeconds, lang, onStart, onRefresh, onSubmit, onWit
   const index = state.round_index ?? 0;
   const phasePollInFlight = useRef(false);
   useEffect(() => {
-    if (phase !== 'learning' && phase !== 'distraction') return;
+    if (phase !== 'acclimation' && phase !== 'learning' && phase !== 'distraction') return;
     if (seconds !== 0) return;
     // Retry until server phase advances; tab suspensions do not reset timing.
     const tick = () => {
@@ -335,7 +369,7 @@ function Study({ state, offsetSeconds, lang, onStart, onRefresh, onSubmit, onWit
   }, [phase, seconds, onRefresh]);
   useEffect(() => {
     const onVisibility = () => {
-      if (document.hidden && (phase === 'learning' || phase === 'distraction' || phase === 'recall')) {
+      if (document.hidden && (phase === 'acclimation' || phase === 'learning' || phase === 'distraction' || phase === 'recall')) {
         const key = hiddenKey(state.participant_id,index);
         localStorage.setItem(key, String(Number(localStorage.getItem(key) || '0') + 1));
       }
@@ -344,11 +378,12 @@ function Study({ state, offsetSeconds, lang, onStart, onRefresh, onSubmit, onWit
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [state.participant_id, index, phase]);
   const label = LABELS[condition];
+  if (phase === 'acclimation') return <Acclimation condition={condition} seconds={seconds}/>;
   return <div className="ambient" style={{'--ambient-color': COLORS[condition]} as CSSProperties}>
     <div className="ambient-overlay">
       <header className="study-header"><Brand light/>
-        <div className="study-header-right"><div className="condition-chip"><ConditionIcon condition={condition} size={17}/>{lang === 'nb' ? label.nb : label.en}</div>
-          <div className="round-chip">{lang === 'nb' ? 'RUNDE' : 'ROUND'} {index + 1}/3</div></div>
+        <div className="study-header-right"><FullscreenToggle lang={lang}/><div className="condition-chip"><ConditionIcon condition={condition} size={17}/>{translate(label.nb, label.en, lang)}</div>
+          <div className="round-chip">{translate('RUNDE', 'ROUND', lang)} {index + 1}/3</div></div>
       </header>
       <div className="ambient-content">
         <div className="study-card"><div className="study-card-top"><div className="research-index">LM / RESEARCH PROTOCOL 002</div><ConditionDots current={index}/></div>
@@ -358,9 +393,9 @@ function Study({ state, offsetSeconds, lang, onStart, onRefresh, onSubmit, onWit
            <Recall key={index} id={state.participant_id} state={state} seconds={seconds} lang={lang} onSubmit={onSubmit} busy={busy} error={error}/>}
           {error && phase !== 'recall' && <div className="error-banner" role="alert">{error}<button onClick={()=>void onRefresh()}><RefreshCw size={15}/> {lang==='nb'?'Prøv igjen':'Retry'}</button></div>}
         </div>
-        <div className="study-under"><span><ShieldCheck size={15}/>{lang === 'nb' ? 'Pseudonym deltaker' : 'Pseudonymous study'}</span>
-          <span>{lang === 'nb' ? 'Ikke endre skjerminnstillingene underveis' : 'Keep screen settings unchanged'}</span>
-          <span><button type="button" className="withdraw-link study-withdraw" onClick={() => void onWithdraw()}>{lang==='nb'?'Trekk samtykke':'Withdraw'}</button></span>
+        <div className="study-under"><span><ShieldCheck size={15}/>{translate('Pseudonym deltaker', 'Pseudonymous study', lang)}</span>
+          <span>{translate('Ikke endre skjerminnstillingene underveis', 'Keep screen settings unchanged', lang)}</span>
+          <span><button type="button" className="withdraw-link study-withdraw" onClick={() => void onWithdraw()}>{translate('Trekk samtykke', 'Withdraw', lang)}</button></span>
         </div>
       </div>
     </div>
@@ -368,7 +403,7 @@ function Study({ state, offsetSeconds, lang, onStart, onRefresh, onSubmit, onWit
 }
 
 function Complete({ lang, onWithdraw, error }: { lang: Language; onWithdraw: () => Promise<void>; error: string | null }) {
-  const t = (nb: string, en: string) => lang === 'nb' ? nb : en;
+  const t = (nb: string, en: string) => translate(nb, en, lang);
   return <div className="site-shell"><Header lang={lang}/>
     <main className="complete-wrap"><div className="complete-icon"><Check size={40}/></div>
       <div className="eyebrow"><Sparkles size={15}/>{t('FORSØK FULLFØRT', 'STUDY COMPLETED')}</div>
@@ -384,14 +419,18 @@ function Complete({ lang, onWithdraw, error }: { lang: Language; onWithdraw: () 
 }
 
 export default function App() {
-  const [lang, setLangState] = useState<Language>(() => localStorage.getItem(LANGUAGE_KEY) === 'en' ? 'en' : 'nb');
+  const [lang, setLangState] = useState<Language>(() => {
+    const stored = localStorage.getItem(LANGUAGE_KEY);
+    return stored && Object.hasOwn(LANGUAGE_NAMES, stored) ? stored as Language : 'nb';
+  });
   const [id, setId] = useState<string | null>(() => localStorage.getItem(PARTICIPANT_KEY));
   const [view, setView] = useState<View>(() => localStorage.getItem(PARTICIPANT_KEY) ? 'loading' : 'intro');
   const [state, setState] = useState<StudyState | null>(null);
   const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const setLang = (next: Language) => { setLangState(next); localStorage.setItem(LANGUAGE_KEY, next); };
+  const setLang = (next: Language) => { setLangState(next); document.documentElement.lang = next; localStorage.setItem(LANGUAGE_KEY, next); };
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   const getState = useCallback(async (participantID: string) => {
     const data = await api.next(participantID);
@@ -417,6 +456,7 @@ export default function App() {
     setBusy(true); setError(null);
     try {
       const result = await api.register(input);
+      storeParticipantToken(result.access_token);
       localStorage.setItem(PARTICIPANT_KEY, result.participant_id);
       setId(result.participant_id);
     } catch(err) { setError(err instanceof Error ? err.message : 'Registration failed'); }
@@ -455,9 +495,9 @@ export default function App() {
 
   const withdraw = async () => {
     if (!id) return;
-    const okay = window.confirm(lang === 'nb'
-      ? 'Vil du trekke samtykket? Alle data som er registrert for denne deltaker-ID-en, slettes permanent.'
-      : 'Withdraw consent? All data associated with this participant ID will be permanently deleted.');
+    const okay = window.confirm(translate(
+      'Vil du trekke samtykket? Alle data som er registrert for denne deltaker-ID-en, slettes permanent.',
+      'Withdraw consent? All data associated with this participant ID will be permanently deleted.', lang));
     if (!okay) return;
     try {
       await api.withdraw(id);
@@ -466,15 +506,22 @@ export default function App() {
         localStorage.removeItem(hiddenKey(id,index));
       }
       localStorage.removeItem(PARTICIPANT_KEY);
+      clearParticipantToken();
       localStorage.removeItem(CALIBRATED_KEY);
       setId(null); setState(null); setError(null); setView('intro');
     } catch (err) { setError(err instanceof Error ? err.message : 'Unable to withdraw'); }
   };
 
   if (view === 'loading') return <div className="loading-page"><Brand/><div className="loading-spinner"/>
-    <p>{lang === 'nb' ? 'Kobler til forsøket …' : 'Connecting to study…'}</p>
-    {error && <><div className="error-banner">{error}</div><Button onClick={() => { if(id) void getState(id).catch(() => undefined); }} secondary>
-      <RefreshCw size={17}/>{lang === 'nb' ? 'Prøv igjen' : 'Retry'}</Button></>}
+    <p>{translate('Kobler til forsøket …', 'Connecting to study…', lang)}</p>
+    {error && <><div className="error-banner">{error}</div>
+      <Button onClick={() => { if(id) void getState(id).catch(() => undefined); }} secondary>
+        <RefreshCw size={17}/>{translate('Prøv igjen', 'Retry', lang)}</Button>
+      <button type="button" className="withdraw-link" onClick={() => {
+        localStorage.removeItem(PARTICIPANT_KEY); clearParticipantToken();
+        setId(null); setState(null); setError(null); setView('intro');
+      }}>{translate('Start på nytt med denne versjonen', 'Start a new session for this version', lang)}</button>
+    </>}
   </div>;
   if (view === 'intro') return <Intro lang={lang} setLang={setLang} onRegister={register} busy={busy} error={error}/>;
   if (view === 'calibration') return <Calibration lang={lang} onNext={() => {

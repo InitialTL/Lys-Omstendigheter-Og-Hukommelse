@@ -8,7 +8,7 @@ import database
 def main():
     destination = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('study_results.csv')
     rows = database.export_rows()
-    headers = ['participant_id','language','age_band','gender','group_name',
+    headers = ['participant_id','language','age_band','gender','protocol_version','group_name',
                'list_order','created_at','round_index','condition','list_id',
                'answers','score','max_score','recall_seconds','hidden_count',
                'submitted_late','completed_at']

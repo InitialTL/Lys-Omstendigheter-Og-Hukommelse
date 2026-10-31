@@ -1,6 +1,6 @@
 # Foreløpig forsøksprotokoll — Hukommelse LM
 
-**Status:** Pilotprotokoll, må kvalitetssikres før datainnsamling. V2.0, 31. oktober 2026.
+**Status:** Pilotprotokoll, må kvalitetssikres før datainnsamling. V2.1, 31. oktober 2026.
 
 ## Forskingsspørsmål
 
@@ -33,9 +33,9 @@ Dette balanserer posisjon (første, andre, tredje) for lysbetingelsene. I tilleg
 ## Prosedyre per deltaker
 
 1. Les informasjon og avgi frivillig samtykke. Oppgi språk, aldersgruppe og eventuelt kjønn.
-2. Følg kalibreringssjekkliste: fast skjermlysstyrke, deaktivert dynamisk fargejustering, stabilt omgivelseslys, ønskelig med fullskjerm.
-3. 15 sekunder tilvenning til skjermbakgrunn.
-4. 60 sekunder memorering av 10 tilfeldige, kunstige ord knyttet til 10 vanlige objekter.
+2. Følg kalibreringssjekklisten: mørkt rom, ingen musikk eller varslinger, fast skjermlysstyrke og avskrudd dynamisk fargejustering. Velg operativsystem for innstillingsveiledning. Juster slik at et lysegrått symbol på hvitt og mørkegrått symbol på svart er så vidt synlige. Denne testen er subjektiv og ikke et lux-/Kelvin-instrument. Bruk fullskjerm der nettleseren tillater det.
+3. 60 sekunder tilvenning til skjermbakgrunn med **bare fargen og en klokke**, uten et stort tekstkort.
+4. 60 sekunder memorering av 10 faste pseudord knyttet til 10 vanlige objekter.
 5. 30 sekunder hoderegning for å begrense aktiv repetisjon.
 6. Fri gjenhenting: skriv objektnavn for de ti kunstige ordene (maks 120 sekunder, automatisk innsending).
 7. Gjenta 3–6 med ny ordliste og en ny lysbetingelse.
@@ -75,3 +75,11 @@ Ikke bruk spørreskjema for navn, fødselsdato, e-post eller presis adresse. Kun
 ## Pilot og beslutningskriterier
 
 Før offentlig rekruttering: la et lite antall frivillige teste nettsiden og rapportere om 60 sekunder er for mye/lite, om noen lister er betydelig lettere enn andre, om mørk bakgrunn gjør lesingen vanskeligere, og om poengfordelingen har gulv- eller takeffekt. Frys deretter metode, fasit og fargedefinisjoner før full datainnsamling. Om du endrer lister eller metode, ikke slå sammen nye og gamle resultater uten en forhåndsdefinert strategi.
+
+## Endringer fra versjon 2.0 til 2.1
+
+- 60 sekunder tilvenning med rent fargefelt, mot 15 sekunder tidligere. Selve timeren styres av serveren.
+- Nye pseudord. De gamle og de nye resultatene **må ikke kombineres som om det var samme forsøk**.
+- Seks språk (nb/en/sv/de/fr/es) med språkspesifikk skåring. Sammenligning på tvers av språk krever å undersøke måleinvarians og ulike responsterskler.
+- Separat tilfeldig tilgangstoken kreves for alle deltakerendepunkter. Hash lagres i SQLite. Dette begrenser innsyn, men bruk også TLS, sikker hosting og moderering ved offentlig datainnsamling.
+- Studiens fullskjermfunksjon er valgfri og kan være utilgjengelig på enkelte mobile nettlesere.
