@@ -134,3 +134,17 @@ Den nye løsningen inkluderer **ikke Google Translate API**. Den støtter seks n
 - 60 sekunder tilvenning må gjennomføres helt før ordparene blir tilgjengelige. Tiden håndheves av serverklokken og kan ikke startes på nytt ved refresh.
 - Ved offentlig publisering må serveren kjøre bak HTTPS, med backups, begrensede nettverkstilganger, ekstern rate limiting og plan for sletting av data. Ikke publiser databasen eller administrasjonstokenet. UUID og tilgangstoken er autentisering, men ikke fullverdig brukeradministrasjon.
 - Ta sikkerhetskopi før databaseoppgradering. En eksisterende V2.0-database migreres i en transaksjon: gamle deltaker-ID-er og resultater beholdes, men den nye protokollen tildeler nye ID-er og nye tilgangstokener.
+
+### Oppdatering: hukommelsestesten hopper over svarfeltene
+
+En tidligere frontend-feil gjorde at `00:00` fra distraksjonsfasen kortvarig ble
+brukt i hukommelsesfasen, og at tomme svar dermed kunne sendes automatisk.
+Nedtellingen beregnes nå fra den **nye fasens egen frist** ved første visning,
+og automatisk innsending verifiserer også at serverens reelle frist er nådd.
+Du skal få opptil 120 sekunder til å skrive svarene. Kjør
+`npm run test:timing` for regresjonstester og `python -m pytest -q`
+i backend for API-testene.
+
+Svar som tidligere ble automatisk registrert som tomme, må behandles som
+**ugyldige pilotdata** i analysen; feilen kan ikke gjenskape det deltakeren
+faktisk husket. Start en ny frivillig testøkt etter kodeoppdateringen.

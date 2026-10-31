@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm install --no-audit --no-fund
+      - name: Verify phase countdown regression
+        working-directory: frontend
+        run: npm run test:timing
       - name: Type check and production build
         working-directory: frontend
         run: npm run build

@@ -263,3 +263,29 @@ def test_registration_rate_limit(client):
         'language':'en','age_band':'18_24','gender':'prefer_not','consent':True
     })
     assert last.status_code == 429
+
+
+def test_recall_has_full_time_after_distraction_and_is_not_auto_submitted(client):
+    """Regression: the transition to recall must not save empty answers."""
+    c, clock = client
+    response = c.post('/api/participants', json={
+        'language': 'en', 'age_band': '18_24', 'gender': 'prefer_not', 'consent': True
+    }).json()
+    pid = response['participant_id']
+    c.headers['X-Participant-Token'] = response['access_token']
+    base = f'/api/participants/{pid}'
+    c.post(base + '/rounds/start')
+    clock['now'] += 150.01  # acclimation (60) + learning (60) + distraction (30)
+    recall = c.get(base + '/next').json()
+    assert recall['phase'] == 'recall'
+    assert 119 < recall['phase_end_at'] - recall['server_now'] <= 120
+    assert len(recall['words']) == 10
+    with database.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM study_results').fetchone()[0] == 0
+    clock['now'] += 0.2
+    unchanged = c.get(base + '/next').json()
+    assert unchanged['phase'] == 'recall'
+    assert unchanged['round_index'] == 0
+    assert unchanged['phase_end_at'] > unchanged['server_now'] + 119
+    with database.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM study_results').fetchone()[0] == 0

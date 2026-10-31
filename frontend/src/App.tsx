@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api, COLORS, storeParticipantToken, clearParticipantToken } from './api';
 import { LANGUAGE_NAMES, OS_HELP, OS_NAMES, translate } from './i18n';
+import { secondsRemaining, deadlinePassed } from './timing';
 import type { OSName } from './i18n';
 import type { Condition, Language, Pair, Registration, StudyState } from './api';
 
@@ -196,20 +197,18 @@ function ConditionDots({ current }: { current: number }) {
   return <div className="step-dots">{[0,1,2].map(i => <span key={i} className={i < current ? 'complete' : i === current ? 'active' : ''}/>)}</div>;
 }
 
-function timeRemaining(deadline: number | null | undefined, offsetSeconds: number): number {
-  if (!deadline) return 0;
-  return Math.max(0, Math.ceil(deadline - (Date.now() / 1000 + offsetSeconds)));
-}
-
 function useCountdown(deadline: number | null | undefined, offsetSeconds: number): number {
-  const [seconds, setSeconds] = useState(() => timeRemaining(deadline, offsetSeconds));
+  // Store only the clock tick, not seconds remaining. If a phase changes,
+  // its NEW deadline is used immediately on this same render, so the expired
+  // distraction timer cannot accidentally trigger recall auto-submission.
+  const [currentUnixSeconds, setCurrentUnixSeconds] = useState(() => Date.now() / 1000);
   useEffect(() => {
-    const update = () => setSeconds(timeRemaining(deadline, offsetSeconds));
+    const update = () => setCurrentUnixSeconds(Date.now() / 1000);
     update();
     const timer = window.setInterval(update, 200);
     return () => window.clearInterval(timer);
-  }, [deadline, offsetSeconds]);
-  return seconds;
+  }, []);
+  return secondsRemaining(deadline, offsetSeconds, currentUnixSeconds);
 }
 
 function Clock({ seconds, total, lang }: { seconds: number; total: number; lang: Language }) {
@@ -296,8 +295,8 @@ function Distraction({ seconds, lang }: { seconds: number; lang: Language }) {
   </div>;
 }
 
-function Recall({ state, seconds, lang, id, onSubmit, busy, error }: {
-  state: StudyState; seconds: number; lang: Language; id: string;
+function Recall({ state, seconds, offsetSeconds, lang, id, onSubmit, busy, error }: {
+  state: StudyState; seconds: number; offsetSeconds: number; lang: Language; id: string;
   onSubmit: (answers: string[], hiddenCount: number) => Promise<void>;
   busy: boolean; error: string | null;
 }) {
@@ -320,10 +319,13 @@ function Recall({ state, seconds, lang, id, onSubmit, busy, error }: {
     catch { submitted.current = false; }
   }, [busy, answers, onSubmit, words.length, id, index]);
   useEffect(() => {
-    if (seconds === 0 && !autoAttempted.current && !submitted.current && !busy && words.length === 10) {
+    // Defense in depth: the previous phase's 00:00 must NEVER cause the recall
+    // form to submit. Confirm the actual recall deadline in addition to seconds.
+    if (seconds === 0 && deadlinePassed(state.phase_end_at, offsetSeconds, Date.now() / 1000)
+        && !autoAttempted.current && !submitted.current && !busy && words.length === 10) {
       autoAttempted.current = true; void submit();
     }
-  }, [seconds, busy, submit, words.length]);
+  }, [seconds, busy, submit, words.length, state.phase_end_at, offsetSeconds]);
   return <div className="phase-main recall-main"><div className="phase-tag"><CheckCircle2 size={16}/>{t('HUKOMMELSESTEST', 'RECALL TEST')}</div>
     <h1>{t('Hva betyr ordene?', 'What do these words mean?')}</h1>
     <p>{t('Skriv objektet du husker for hvert ord. Hvis du ikke husker, lar du feltet stå tomt.',
@@ -390,7 +392,7 @@ function Study({ state, offsetSeconds, lang, onStart, onRefresh, onSubmit, onWit
           {phase === 'setup' ? <Setup key={index} condition={condition} index={index} lang={lang} onStart={onStart} busy={busy}/> :
            phase === 'learning' ? <Learning pairs={state.pairs ?? []} seconds={seconds} lang={lang}/> :
            phase === 'distraction' ? <Distraction key={index} seconds={seconds} lang={lang}/> :
-           <Recall key={index} id={state.participant_id} state={state} seconds={seconds} lang={lang} onSubmit={onSubmit} busy={busy} error={error}/>}
+           <Recall key={index} id={state.participant_id} state={state} seconds={seconds} offsetSeconds={offsetSeconds} lang={lang} onSubmit={onSubmit} busy={busy} error={error}/>}
           {error && phase !== 'recall' && <div className="error-banner" role="alert">{error}<button onClick={()=>void onRefresh()}><RefreshCw size={15}/> {lang==='nb'?'Prøv igjen':'Retry'}</button></div>}
         </div>
         <div className="study-under"><span><ShieldCheck size={15}/>{translate('Pseudonym deltaker', 'Pseudonymous study', lang)}</span>
