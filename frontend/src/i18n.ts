@@ -106,10 +106,8 @@ const MESSAGES: Record<string, [string, string, string, string]> = {
   'Solve the arithmetic problems. Do not rehearse the word pairs while waiting.':
     ['Lös uppgifterna. Repetera inte ordparen under tiden.', 'Löse die Rechenaufgaben. Wiederhole die Wortpaare dabei nicht.', 'Résolvez les calculs sans répéter les paires de mots.', 'Resuelve las operaciones sin repetir los pares de palabras.'],
   'WHAT IS THE SUM?': ['VAD BLIR SUMMAN?','WIE VIEL IST DIE SUMME?','QUELLE EST LA SOMME ?','¿CUÁL ES LA SUMA?'],
-  'Your answer': ['Ditt svar','Deine Antwort','Votre réponse','Tu respuesta'],
   'Submit': ['Svara','Antworten','Valider','Enviar'],
   'Problems attempted': ['Försök','Versuche','Tentatives','Intentos'],
-  'Correct': ['Rätt','Richtig','Corrects','Correctos'],
   'RECALL TEST': ['MINNESTEST','GEDÄCHTNISTEST','TEST DE RAPPEL','PRUEBA DE MEMORIA'],
   'What do these words mean?': ['Vad betyder orden?','Was bedeuten diese Wörter?','Que signifient ces mots ?','¿Qué significan estas palabras?'],
   'Type the object you remember for each word. Leave an answer blank if you do not remember.':
