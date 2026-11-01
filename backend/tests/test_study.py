@@ -485,7 +485,7 @@ def test_legacy_schema_migration_keeps_v22_results(tmp_path, monkeypatch):
 def test_v24_conditions_and_approximate_relative_srgb_luminance(client):
     import math
     c, _ = client
-    assert database.PROTOCOL_VERSION == '2.4'
+    assert database.PROTOCOL_VERSION == '2.5'
     assert database.CONDITIONS == ('ORANGE', 'BLUE', 'NEUTRAL')
     colors = c.get('/api/config').json()['conditions']
     assert set(colors) == set(database.CONDITIONS)
@@ -520,6 +520,26 @@ def test_v23_data_are_preserved_and_not_accepted_as_new_sessions(client):
     new = c.post('/api/participants', json={
         'language':'nb', 'age_band':'18_24', 'gender':'prefer_not', 'consent':True
     }).json()
-    assert new['group'] == 'A'  # group balance only counts 2.4
+    assert new['group'] == 'A'  # group balance only counts 2.5
     with database.connect() as db:
-        assert db.execute("SELECT protocol_version FROM study_participants WHERE id=?", (new['participant_id'],)).fetchone()[0] == '2.4'
+        assert db.execute("SELECT protocol_version FROM study_participants WHERE id=?", (new['participant_id'],)).fetchone()[0] == '2.5'
+
+
+def test_v24_same_color_codes_not_mixed_into_new_protocol(client):
+    c, _ = client
+    previous = c.post('/api/participants', json={
+        'language': 'nb', 'age_band': '18_24', 'gender': 'prefer_not', 'consent': True
+    }).json()
+    with database.connect() as db:
+        db.execute("UPDATE study_participants SET protocol_version='2.4' WHERE id=?", (previous['participant_id'],))
+        db.execute("INSERT INTO study_results (participant_id,round_index,condition,list_id,answers,score,max_score,recall_seconds,completed_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                   (previous['participant_id'], 0, 'ORANGE', 0, '[]', 6, 8, 80, '2026-11-01'))
+    assert c.get(f"/api/participants/{previous['participant_id']}/next",
+                 headers={'X-Participant-Token': previous['access_token']}).status_code == 401
+    new = c.post('/api/participants', json={
+        'language': 'nb', 'age_band': '18_24', 'gender': 'prefer_not', 'consent': True
+    }).json()
+    assert new['group'] == 'A'  # Older cohorts are not counted in balancing.
+    with database.connect() as db:
+        assert db.execute("SELECT score FROM study_results WHERE participant_id=?", (previous['participant_id'],)).fetchone()[0] == 6
+        assert db.execute("SELECT protocol_version FROM study_participants WHERE id=?", (new['participant_id'],)).fetchone()[0] == database.PROTOCOL_VERSION

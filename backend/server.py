@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, ConfigDict
 import database
 import words
 
-app = FastAPI(title="Hukommelse LM API", version="2.4.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="Hukommelse LM API", version="2.5.0", docs_url=None, redoc_url=None)
 
 # A publicly reachable origin must be placed behind HTTPS and a firewall or
 # Cloudflare Tunnel. Never accept arbitrary Host headers on the origin.
@@ -171,7 +171,7 @@ def build_state(participant_id: str) -> dict:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "2.4.0"}
+    return {"status": "ok", "version": "2.5.0"}
 
 
 @app.get("/api/config")

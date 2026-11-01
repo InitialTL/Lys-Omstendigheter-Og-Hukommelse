@@ -10,8 +10,12 @@ def main():
     rows = [row for row in all_rows if row["protocol_version"] == database.PROTOCOL_VERSION]
     if len(all_rows) > len(rows):
         print(f"Eldre pilotresultater er holdt utenfor: {len(all_rows) - len(rows)} runder.")
+    late = [row for row in rows if row['submitted_late']]
+    if late:
+        print(f'Runder etter svarfristen utelatt fra hovedanalysen: {len(late)}.')
+    rows = [row for row in rows if not row['submitted_late']]
     if not rows:
-        print('Ingen runder er fullført ennå.')
+        print('Ingen runder er fullført innen svarfristen ennå.')
         return
     by_condition = defaultdict(list)
     by_person = defaultdict(dict)

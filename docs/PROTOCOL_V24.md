@@ -1,3 +1,5 @@
+> **ARKIVERT TIDLIGERE PROTOKOLL.** Versjon 2.5 viser den samme fargetonen også bak lærings- og svarfeltene. Se [PROTOCOL_V25.md](PROTOCOL_V25.md).
+
 # Hukommelse LM — protokoll 2.4 (pilot)
 
 ## Forskningsspørsmål

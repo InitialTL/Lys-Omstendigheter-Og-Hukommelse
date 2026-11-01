@@ -127,7 +127,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
 
 function LayersIcon() { return <div className="layers-icon"><span/><span/><span/></div>; }
 function Footer({ lang }: { lang: Language }) {
-  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.4</span></footer>;
+  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.5</span></footer>;
 }
 
 function FullscreenToggle({ lang }: { lang: Language }) {
@@ -339,22 +339,34 @@ function Recall({ state, seconds, offsetSeconds, lang, id, onSubmit, busy, error
   });
   const submitted = useRef(false);
   const autoAttempted = useRef(false);
+  // Freeze the participant's draft when time expires. Retries resend the exact
+  // same answers; a failed network request never grants extra writing time.
+  const frozenAnswers = useRef<string[] | null>(null);
+  const [sendFailed, setSendFailed] = useState(false);
+  const expired = seconds === 0 && deadlinePassed(state.phase_end_at, offsetSeconds, Date.now() / 1000);
   const t = (nb: string, en: string) => translate(nb, en, lang);
   useEffect(() => { localStorage.setItem(draftKey(id,index), JSON.stringify(answers)); }, [answers, id, index]);
   const submit = useCallback(async () => {
     if (submitted.current || busy || words.length !== 8) return;
     submitted.current = true;
-    try { await onSubmit(answers, Number(localStorage.getItem(hiddenKey(id,index)) || '0')); }
-    catch { submitted.current = false; }
+    setSendFailed(false);
+    try {
+      await onSubmit(frozenAnswers.current ?? answers, Number(localStorage.getItem(hiddenKey(id,index)) || '0'));
+    } catch {
+      submitted.current = false;
+      setSendFailed(true);
+    }
   }, [busy, answers, onSubmit, words.length, id, index]);
   useEffect(() => {
-    // Defense in depth: the previous phase's 00:00 must NEVER cause the recall
-    // form to submit. Confirm the actual recall deadline in addition to seconds.
-    if (seconds === 0 && deadlinePassed(state.phase_end_at, offsetSeconds, Date.now() / 1000)
-        && !autoAttempted.current && !submitted.current && !busy && words.length === 10) {
-      autoAttempted.current = true; void submit();
+    // Only the actual recall deadline can lock/submit. Never reuse a previous
+    // phase's 00:00 (the deadline is read from the current server state).
+    if (!expired || words.length !== 8) return;
+    if (frozenAnswers.current === null) frozenAnswers.current = answers.slice();
+    if (!autoAttempted.current && !submitted.current && !busy) {
+      autoAttempted.current = true;
+      void submit();
     }
-  }, [seconds, busy, submit, words.length, state.phase_end_at, offsetSeconds]);
+  }, [expired, busy, submit, words.length, answers]);
   return <div className="phase-main recall-main"><div className="phase-tag"><CheckCircle2 size={16}/>{t('HUKOMMELSESTEST', 'RECALL TEST')}</div>
     <h1>{t('Hva betyr ordene?', 'What do these words mean?')}</h1>
     <p>{t('Ordene er nå stokket om. Skriv det du husker, og la resten stå tomt. Du får se fasiten etter siste runde.',
@@ -362,16 +374,20 @@ function Recall({ state, seconds, offsetSeconds, lang, id, onSubmit, busy, error
     <div className="answers-grid">{words.map((word,i) => <label className="answer-field" key={word}>
       <span><small>{String(i+1).padStart(2,'0')}</small><b>{word}</b></span>
       <input maxLength={80} autoComplete="off" spellCheck={false} value={answers[i] || ''}
-        placeholder={t('Objekt …', 'Object…')} onChange={event => {
+        disabled={expired || busy} placeholder={t('Objekt …', 'Object…')} onChange={event => {
+          if (expired) return;
           const val=event.target.value; setAnswers(old => old.map((a,j)=>i===j ? val : a));
         }} />
     </label>)}</div>
     {error && <div className="error-banner" role="alert">{error}</div>}
     <div className="recall-footer"><div className="recall-clock"><Clock seconds={seconds} total={120} lang={lang}/></div>
-      <Button disabled={busy || words.length !== 8} onClick={() => void submit()}>
-        {busy ? t('Lagrer …', 'Saving…') : t('Lever svarene', 'Submit answers')} <ArrowRight size={17}/>
+      <Button disabled={busy || words.length !== 8 || (expired && !sendFailed)} onClick={() => void submit()}>
+        {busy ? t('Lagrer …', 'Saving…') : expired && sendFailed ? t('Prøv å lagre igjen', 'Retry saving') : expired ? t('Tiden er ute', 'Time is up') : t('Lever svarene', 'Submit answers')} <ArrowRight size={17}/>
       </Button>
-    </div><p className="submit-note">{t('Svarene sendes automatisk når tiden går ut.', 'Answers are submitted automatically when time runs out.')}</p>
+    </div><p className="submit-note" role={expired ? 'status' : undefined}>{expired
+      ? (sendFailed ? t('Tiden er ute. Svarene er låst. Kontroller tilkoblingen og prøv å lagre igjen.', 'Time is up. Your answers are locked. Check your connection and retry saving.')
+        : t('Tiden er ute. Svarene er låst og sendes til serveren.', 'Time is up. Your answers are locked and being sent to the server.'))
+      : t('Du kan levere før tiden er ute. Etter 120 sekunder låses svarene og sendes automatisk.', 'You may submit early. After 120 seconds, answers are locked and sent automatically.')}</p>
   </div>;
 }
 
@@ -556,7 +572,20 @@ export default function App() {
       const raw = localStorage.getItem(mathKey(id,round));
       let math = {attempts:0, correct:0};
       try { if (raw) math = JSON.parse(raw); } catch { /* invalid optional stats */ }
-      await api.submit(id, round, answers, hidden, math.attempts, math.correct);
+      try {
+        await api.submit(id, round, answers, hidden, math.attempts, math.correct);
+      } catch (err) {
+        // A connection may drop after the server committed the result. Check
+        // server progress before telling the participant to retry the POST.
+        try {
+          const latest = await api.next(id);
+          if (!latest.finished && latest.round_index === round) throw err;
+        } catch (lookupError) {
+          // A failed lookup cannot prove that the original submission saved.
+          if (lookupError !== err) throw err;
+          throw lookupError;
+        }
+      }
       localStorage.removeItem(mathKey(id,round));
       localStorage.removeItem(draftKey(id,round));
       localStorage.removeItem(hiddenKey(id,round));

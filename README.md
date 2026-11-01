@@ -1,10 +1,10 @@
-# Hukommelse LM — pilotversjon 2.4
+# Hukommelse LM — pilotversjon 2.5
 
 En responsiv React/TypeScript-frontend med FastAPI og SQLite for et anonymt, fjernbasert pilotforsøk. **Gjeldende forskningsspørsmål:** Påvirker **oransje, blå eller nøytral grå skjermbakgrunn** hvor godt deltakerne husker nylig lærte assosiasjoner mellom pseudord og objekter?
 
 [Les den gjeldende forsøksprotokollen](docs/PROTOCOL_V24.md). Tidligere [protokoll 2.3](docs/PROTOCOL_V23.md) og [eldre prosjektnotater](docs/PROTOCOL.md) er arkivert og skal ikke brukes som beskrivelse av den nye datainnsamlingen.
 
-## Fargebetingelser i 2.4
+## Fargebetingelser i 2.5
 
 | Betingelse | sRGB-farge | Beregnet relativ luminans |
 | --- | --- | ---: |
@@ -76,8 +76,14 @@ GitHub Actions kjører også en tre-runders ende-til-ende-test i Chromium på fl
 ## Personvern, eldre protokoller og drift
 
 * `backend/results.db` inneholder deltakerdata og skal **aldri** legges i Git eller deles. Ta sikkerhetskopi før oppdateringer. SQLite WAL-filer kan også eksistere mens serveren kjører.
-* Nye deltakere merkes `protocol_version = 2.4`. Deltakerøkter fra 2.0–2.3 er **ikke** gyldige i den nye protokollen, men tidligere resultater beholdes i databasen. Nye testdeltakere må registrere seg på nytt.
+* Nye deltakere merkes `protocol_version = 2.5`. Deltakerøkter fra 2.0–2.4 er **ikke** gyldige i den nye protokollen, men tidligere resultater beholdes i databasen. Nye testdeltakere må registrere seg på nytt.
 * `python backend/analyze_cli.py` viser kun resultater for den aktive protokollen. `python backend/export_cli.py` kan eksportere alle historiske protokoller med versjonsmerking; analyser dem separat.
 * Deltakerøkt krever både tilfeldig deltaker-ID og eget hemmelig token. API-et har vert-/origin-sjekk, begrensede forespørselsstørrelser og sikkerhetsoverskrifter, men dette erstatter **ikke** sikker produksjonsdrift.
 * Bruk HTTPS via Cloudflare Tunnel med ingen direkte tilgang til origin, egnet rate limiting, sikker administratortilgang og oppdaterte avhengigheter. Se [sikkerhetsveiledningen](docs/SECURITY.md) og [språkstøtte](docs/I18N.md).
 * Korrigeringsdata og brukeropplevelse må pilottestes før en vitenskapelig konklusjon trekkes. Ikke kombiner skår fra ulike protokollversjoner.
+
+## Endring i 2.5: stimulus og svarfrist
+
+Læringsskjermen, regneoppgavene og svarfeltene bruker nå **nøyaktig samme CSS-bakgrunnsfarge** som omkringliggende viewport. Kortet har bare en mørk, transparent kantlinje. Dette gir mer konsekvent eksponering for fargebetingelsen, men er en vesentlig endring i forsøksstimulus: resultater fra 2.4 må ikke slås sammen med 2.5.
+
+Etter 120 s låses svaret klienten og automatisk sending starter. Nettverksfeil viser en knapp som sender **de allerede låste svarene** på nytt, ikke flere skrivesekunder. Serveren tidsstempler mottak og merker for sent mottatte svar. Analysekommandoen ekskluderer nå forsinkede innsendinger fra hovedgjennomsnittet og rapporterer antallet.

@@ -12,7 +12,7 @@ from pathlib import Path
 from itertools import permutations
 
 DB_PATH = Path(os.environ.get("STUDY_DATABASE", str(Path(__file__).with_name("results.db"))))
-PROTOCOL_VERSION = "2.4"
+PROTOCOL_VERSION = "2.5"
 WORDS_PER_ROUND = 8
 LANGUAGES = ("nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro")
 CONDITIONS = ("ORANGE", "BLUE", "NEUTRAL")
@@ -55,7 +55,7 @@ def init_db() -> None:
                 list_order TEXT NOT NULL,
                 consented_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                protocol_version TEXT NOT NULL DEFAULT '2.4',
+                protocol_version TEXT NOT NULL DEFAULT '2.5',
                 token_hash TEXT
             );
             CREATE TABLE IF NOT EXISTS study_rounds (
@@ -88,7 +88,7 @@ def init_db() -> None:
               ON study_results(condition);
         """)
     # Migrate old pilot schemas without modifying or deleting old results.
-    # Only V2.4 participants are accepted by public study endpoints.
+    # Only V2.5 participants are accepted by public study endpoints.
     with connect() as db:
         existing = {r[1] for r in db.execute('PRAGMA table_info(study_participants)')}
         schema = db.execute("SELECT sql FROM sqlite_master WHERE name='study_participants'").fetchone()[0]
@@ -105,7 +105,7 @@ def init_db() -> None:
                 list_order TEXT NOT NULL,
                 consented_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                protocol_version TEXT NOT NULL DEFAULT '2.4',
+                protocol_version TEXT NOT NULL DEFAULT '2.5',
                 token_hash TEXT
             )''')
             protocol_expr = 'protocol_version' if 'protocol_version' in existing else "'2.0'"
@@ -276,7 +276,7 @@ def export_rows() -> list[dict]:
 
 
 def completed_rounds(participant_id: str) -> list[dict] | None:
-    '''Return raw results only for a fully finished V2.4 session.
+    '''Return raw results only for a fully finished V2.5 session.
 
     The API layer adds translations and grades after this gate, so the
     correct answers are never available while another round remains.

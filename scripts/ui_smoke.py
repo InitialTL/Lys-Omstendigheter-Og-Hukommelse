@@ -70,11 +70,20 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         page.reload(wait_until='networkidle')
         page.locator('.pairs-grid .pair-tile').first.wait_for()
         assert page.locator('.pair-tile').count() == 8
+        # Same background in viewport, panel and words: the condition must
+        # remain visible during memorization (not just during acclimation).
+        def check_color(selectors):
+            colors = page.evaluate('''(selectors) => selectors.map(selector =>
+                getComputedStyle(document.querySelector(selector)).backgroundColor)''', selectors)
+            assert len(set(colors)) == 1, (condition, selectors, colors)
+            assert colors[0] == expected_colors[condition], (condition, colors)
+        check_color(['.ambient', '.study-card', '.pair-tile'])
         learning = page.locator('.pair-tile b').all_inner_texts()
         learned_words.append(learning)
         advance(db_path, participant_id, round_index, 136)
         page.reload(wait_until='networkidle')
         page.locator('.math-form input').wait_for()
+        check_color(['.ambient', '.study-card', '.math-card', '.math-form input'])
         page.locator('.math-form input').fill('41')
         page.get_by_role('button', name='Submit', exact=True).click()
         assert '1' in page.locator('.math-card>small').inner_text()
@@ -82,6 +91,7 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         page.reload(wait_until='networkidle')
         page.locator('.answers-grid input').first.wait_for()
         assert page.locator('.answers-grid input').count() == 8
+        check_color(['.ambient', '.study-card', '.answer-field', '.answer-field input'])
         recall = page.locator('.answer-field b').all_inner_texts()
         assert all(a != b for a,b in zip(learning,recall)), 'Words were not independently shuffled'
         assert not page.locator('.review-item').count(), 'Answer key leaked before completion'
@@ -89,16 +99,36 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         assert page.locator('.answers-grid input').count() == 8, 'Recall auto-submitted immediately'
         assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), f'Horizontal overflow at {width}px'
         page.locator('.answers-grid input').first.fill('test')
-        page.get_by_role('button', name='Submit answers').click()
-        if round_index < 2:
-            page.get_by_role('button', name='Start this round').wait_for()
+        if round_index == 1:
+            # Server moves beyond the recall deadline without receiving a POST.
+            # Reloading then MUST lock and automatically submit the 8 answers.
+            # On one device, simulate the first transmission failing, and ensure
+            # the participant can retry without editing answers after expiry.
+            if width == 390:
+                page.route('**/rounds/1/submit',
+                           lambda route: route.fulfill(status=503, content_type='application/json',
+                                                       body='{"detail":"Temporary failure"}'), times=1)
+            advance(db_path, participant_id, round_index, 287)
+            page.reload(wait_until='networkidle')
+            if width == 390:
+                page.get_by_role('button', name='Retry saving').wait_for(timeout=12000)
+                assert page.locator('.answers-grid input').first.is_disabled(), 'Answers remained editable after time expired'
+                page.get_by_role('button', name='Retry saving').click()
         else:
-            page.locator('.results-review').wait_for()
+            page.get_by_role('button', name='Submit answers').click()
+        if round_index < 2:
+            page.get_by_role('button', name='Start this round').wait_for(timeout=12000)
+        else:
+            page.locator('.results-review').wait_for(timeout=12000)
     assert set(conditions_seen) == set(expected_colors), conditions_seen
     with sqlite3.connect(db_path) as db:
         saved = db.execute('SELECT score,math_attempts,math_correct FROM study_results WHERE participant_id=? ORDER BY round_index',
                            (participant_id,)).fetchall()
         assert len(saved) == 3 and all(row[1] == 1 for row in saved), saved
+        # The time-up path completed round 2 automatically, not by a click.
+        after_timeout = db.execute('SELECT answers FROM study_results WHERE participant_id=? AND round_index=1',
+                                   (participant_id,)).fetchone()
+        assert after_timeout and 'test' in after_timeout[0], after_timeout
     assert page.locator('.review-round').count() == 3
     page.locator('.review-round summary').first.click()
     assert page.locator('.review-round').first.locator('.review-item').count() == 8
