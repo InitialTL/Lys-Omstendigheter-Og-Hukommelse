@@ -20,6 +20,7 @@ const LABELS: Record<Condition, { nb: string; en: string; descriptionNb: string;
   NEUTRAL: { nb: 'Nøytral grå', en: 'Neutral gray', descriptionNb: 'Grå skjermbakgrunn', descriptionEn: 'Gray screen background' },
 };
 const draftKey = (id: string, index: number) => `lm_v2_draft_${id}_${index}`;
+const draftVersionKey = (id: string, index: number) => `lm_v2_draft_revision_${id}_${index}`;
 const hiddenKey = (id: string, index: number) => `lm_v2_hidden_${id}_${index}`;
 const mathKey = (id: string, index: number) => `lm_v23_math_${id}_${index}`;
 
@@ -127,7 +128,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
 
 function LayersIcon() { return <div className="layers-icon"><span/><span/><span/></div>; }
 function Footer({ lang }: { lang: Language }) {
-  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.6</span></footer>;
+  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.7</span></footer>;
 }
 
 function FullscreenToggle({ lang }: { lang: Language }) {
@@ -331,63 +332,133 @@ function Recall({ state, seconds, offsetSeconds, lang, id, onSubmit, busy, error
 }) {
   const index = state.round_index ?? 0;
   const words = state.words ?? [];
+  const expired = seconds === 0 && deadlinePassed(state.phase_end_at, offsetSeconds, Date.now() / 1000);
+  const serverRevision = state.draft_revision ?? 0;
+  const storedRevision = Number(localStorage.getItem(draftVersionKey(id,index)) || 0);
+  const initialRevision = Number.isSafeInteger(storedRevision) && storedRevision >= 0
+    ? Math.max(storedRevision,serverRevision) : serverRevision;
   const [answers, setAnswers] = useState<string[]>(() => {
+    const server = state.draft_answers?.length === 8 ? state.draft_answers : Array(8).fill('');
+    // Expired sessions must never allow a local unsent edit to count. Only the
+    // checkpoint accepted by the server before the deadline can be recovered.
+    if (expired) return server;
     try {
-      const old = JSON.parse(localStorage.getItem(draftKey(id,index)) || 'null');
-      return Array.isArray(old) && old.length === 8 ? old : Array(8).fill('');
-    } catch { return Array(8).fill(''); }
+      const local = JSON.parse(localStorage.getItem(draftKey(id,index)) || 'null');
+      if (Array.isArray(local) && local.length === 8 && local.every(x=>typeof x==='string') &&
+          (storedRevision > serverRevision || !serverRevision)) return local;
+    } catch { /* server checkpoint is the fallback */ }
+    return server;
   });
+  const latestAnswers = useRef(answers);
+  const revision = useRef(initialRevision);
+  const dirty = useRef(!expired && storedRevision > serverRevision);
+  const [saveStatus, setSaveStatus] = useState<'idle'|'saving'|'saved'|'offline'>(dirty.current ? 'saving' : serverRevision ? 'saved' : 'idle');
   const submitted = useRef(false);
   const autoAttempted = useRef(false);
-  // Freeze the participant's draft when time expires. Retries resend the exact
-  // same answers; a failed network request never grants extra writing time.
+  // Freeze answers once the server's deadline is reached. Server-side scoring
+  // independently refuses to accept newly supplied late answers.
   const frozenAnswers = useRef<string[] | null>(null);
   const [sendFailed, setSendFailed] = useState(false);
-  const expired = seconds === 0 && deadlinePassed(state.phase_end_at, offsetSeconds, Date.now() / 1000);
   const t = (nb: string, en: string) => translate(nb, en, lang);
-  useEffect(() => { localStorage.setItem(draftKey(id,index), JSON.stringify(answers)); }, [answers, id, index]);
+
+  const flush = useCallback((keepalive = false, force = false) => {
+    if (expired || (!dirty.current && !force) || words.length !== 8) return;
+    const snapshot = latestAnswers.current.slice();
+    const value = revision.current;
+    dirty.current = false;
+    void api.draft(id, index, value, snapshot, keepalive).then(response => {
+      if (revision.current === value) {
+        if (response.saved) setSaveStatus('saved');
+        else { dirty.current = true; setSaveStatus('saving'); }
+      }
+    }).catch(() => {
+      if (revision.current === value) {
+        dirty.current = true;
+        setSaveStatus('offline');
+      }
+    });
+  }, [id,index,expired,words.length]);
+
+  useEffect(() => {
+    if (expired || !dirty.current) return;
+    const debounce = window.setTimeout(() => flush(), 280);
+    return () => window.clearTimeout(debounce);
+  }, [answers,expired,flush]);
+  useEffect(() => {
+    if (expired) return;
+    // Bounded, periodic retries, not an unbounded request per keystroke.
+    const retry = window.setInterval(() => { if (dirty.current) flush(); }, 4000);
+    // Even if a debounced save is already in flight, send the latest revision
+    // with keepalive during navigation. Duplicate revision writes are safe.
+    const visibility = () => { if (document.hidden) flush(true, true); };
+    const pagehide = () => flush(true, true);
+    document.addEventListener('visibilitychange', visibility);
+    window.addEventListener('pagehide',pagehide);
+    return () => {
+      window.clearInterval(retry);
+      document.removeEventListener('visibilitychange',visibility);
+      window.removeEventListener('pagehide',pagehide);
+    };
+  }, [expired,flush]);
+
   const submit = useCallback(async () => {
     if (submitted.current || busy || words.length !== 8) return;
     submitted.current = true;
     setSendFailed(false);
-    try {
-      await onSubmit(frozenAnswers.current ?? answers, Number(localStorage.getItem(hiddenKey(id,index)) || '0'));
-    } catch {
-      submitted.current = false;
-      setSendFailed(true);
-    }
-  }, [busy, answers, onSubmit, words.length, id, index]);
+    try { await onSubmit(frozenAnswers.current ?? latestAnswers.current,
+                         Number(localStorage.getItem(hiddenKey(id,index)) || '0')); }
+    catch { submitted.current = false; setSendFailed(true); }
+  }, [busy,onSubmit,words.length,id,index]);
   useEffect(() => {
-    // Only the actual recall deadline can lock/submit. Never reuse a previous
-    // phase's 00:00 (the deadline is read from the current server state).
     if (!expired || words.length !== 8) return;
     if (frozenAnswers.current === null) frozenAnswers.current = answers.slice();
     if (!autoAttempted.current && !submitted.current && !busy) {
       autoAttempted.current = true;
       void submit();
     }
-  }, [expired, busy, submit, words.length, answers]);
+  }, [expired,words.length,busy,submit,answers]);
+
   return <div className="phase-main recall-main"><div className="phase-tag"><CheckCircle2 size={16}/>{t('HUKOMMELSESTEST', 'RECALL TEST')}</div>
     <h1>{t('Hva betyr ordene?', 'What do these words mean?')}</h1>
-    <p>{t('Ordene er nå stokket om. Skriv det du husker, og la resten stå tomt. Du får se fasiten etter siste runde.',
-      'The order is shuffled. Enter what you remember and leave the rest blank. You can review the answers after all three rounds.')}</p>
+    <p>{t('Ordene er stokket om. Skriv det du husker, og la resten stå tomt.',
+      'The order is shuffled. Enter what you remember and leave the rest blank.')}</p>
     <div className="answers-grid">{words.map((word,i) => <label className="answer-field" key={word}>
       <span><small>{String(i+1).padStart(2,'0')}</small><b>{word}</b></span>
       <input maxLength={80} autoComplete="off" spellCheck={false} value={answers[i] || ''}
-        disabled={expired || busy} placeholder={t('Objekt …', 'Object…')} onChange={event => {
+        disabled={expired || busy} placeholder={t('Objekt …', 'Object…')}
+        onBlur={() => flush()}
+        onChange={event => {
           if (expired) return;
-          const val=event.target.value; setAnswers(old => old.map((a,j)=>i===j ? val : a));
+          const val=event.target.value;
+          const next = latestAnswers.current.map((a,j)=>i===j ? val : a);
+          latestAnswers.current = next;
+          setAnswers(next);
+          revision.current += 1;
+          dirty.current = true;
+          setSaveStatus('saving');
+          try {
+            localStorage.setItem(draftKey(id,index), JSON.stringify(next));
+            localStorage.setItem(draftVersionKey(id,index),String(revision.current));
+          } catch { /* server checkpoints remain available if storage is blocked */ }
         }} />
     </label>)}</div>
+    <p className="checkpoint-status" role="status" aria-live="polite">
+      {expired ? t('Svarfristen er nådd. Kun svar lagret innen fristen kan telles.', 'Time is up. Only answers saved before the deadline can count.') :
+        saveStatus === 'saved' ? t('Svarene er sikkerhetslagret.', 'Answers backed up to the server.') :
+        saveStatus === 'offline' ? t('Forbindelsen er brutt. Svarene er lagret på denne enheten; prøver igjen.', 'Connection interrupted. Answers saved on this device; retrying.') :
+        saveStatus === 'saving' ? t('Sikkerhetslagrer …', 'Saving a backup…') :
+        t('Svarene sikkerhetslagres automatisk mens du skriver.', 'Answers are backed up as you type.')}
+    </p>
     {error && <div className="error-banner" role="alert">{error}</div>}
     <div className="recall-footer"><div className="recall-clock"><Clock seconds={seconds} total={120} lang={lang}/></div>
       <Button disabled={busy || words.length !== 8 || (expired && !sendFailed)} onClick={() => void submit()}>
         {busy ? t('Lagrer …', 'Saving…') : expired && sendFailed ? t('Prøv å lagre igjen', 'Retry saving') : expired ? t('Tiden er ute', 'Time is up') : t('Lever svarene', 'Submit answers')} <ArrowRight size={17}/>
       </Button>
     </div><p className="submit-note" role={expired ? 'status' : undefined}>{expired
-      ? (sendFailed ? t('Tiden er ute. Svarene er låst. Kontroller tilkoblingen og prøv å lagre igjen.', 'Time is up. Your answers are locked. Check your connection and retry saving.')
-        : t('Tiden er ute. Svarene er låst og sendes til serveren.', 'Time is up. Your answers are locked and being sent to the server.'))
-      : t('Du kan levere før tiden er ute. Etter 120 sekunder låses svarene og sendes automatisk.', 'You may submit early. After 120 seconds, answers are locked and sent automatically.')}</p>
+      ? (sendFailed ? t('Tiden er ute. Kontroller tilkoblingen og prøv igjen.', 'Time is up. Check your connection and try again.')
+        : t('Tiden er ute. Vi lagrer svarene som ble mottatt innen fristen.', 'Time is up. Saving answers received before the deadline.'))
+      : t('Du kan levere før fristen. Etter 120 sekunder låses svarene og sendes automatisk.',
+           'You may submit early. After 120 seconds, answers lock and submit automatically.')}</p>
   </div>;
 }
 
@@ -694,6 +765,7 @@ export default function App() {
       }
       localStorage.removeItem(mathKey(id,round));
       localStorage.removeItem(draftKey(id,round));
+      localStorage.removeItem(draftVersionKey(id,round));
       localStorage.removeItem(hiddenKey(id,round));
       await getState(id);
     } catch(err) { setError(err instanceof Error ? err.message : 'Unable to save'); throw err; }
@@ -726,6 +798,7 @@ export default function App() {
       await api.withdraw(id);
       for (let index=0; index<3; index++) {
         localStorage.removeItem(draftKey(id,index));
+        localStorage.removeItem(draftVersionKey(id,index));
         localStorage.removeItem(hiddenKey(id,index));
         localStorage.removeItem(mathKey(id,index));
       }

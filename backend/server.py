@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, ConfigDict
 import database
 import words
 
-app = FastAPI(title="Hukommelse LM API", version="2.7.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="Hukommelse LM API", version="2.7.1", docs_url=None, redoc_url=None)
 
 # A publicly reachable origin must be placed behind HTTPS and a firewall or
 # Cloudflare Tunnel. Never accept arbitrary Host headers on the origin.
@@ -131,6 +131,12 @@ class Submission(BaseModel):
     math_correct: int = Field(default=0, ge=0, le=100)
 
 
+class DraftCheckpoint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    revision: int = Field(ge=1, le=1000000)
+    answers: list[str] = Field(min_length=8, max_length=8)
+
+
 class Perception(BaseModel):
     model_config = ConfigDict(extra="forbid")
     perceived_difference: Literal['NONE','SMALL','MODERATE','LARGE','UNSURE','SKIPPED']
@@ -176,7 +182,7 @@ def build_state(participant_id: str) -> dict:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "2.7.0"}
+    return {"status": "ok", "version": "2.7.1"}
 
 
 @app.get("/api/config")
@@ -242,6 +248,21 @@ def start_round(participant_id: str, x_participant_token: str | None = Header(de
     return build_state(participant_id)
 
 
+@app.post("/api/participants/{participant_id}/rounds/{round_index}/draft")
+def checkpoint_round(participant_id: str, round_index: int, checkpoint: DraftCheckpoint,
+                     x_participant_token: str | None = Header(default=None)):
+    authorize(participant_id, x_participant_token)
+    if not 0 <= round_index < 3:
+        raise HTTPException(status_code=404, detail="Unknown round")
+    if any(len(answer) > 80 for answer in checkpoint.answers):
+        raise HTTPException(status_code=422, detail="Answers must be at most 80 characters")
+    try:
+        return database.save_draft(participant_id, round_index,
+                                   checkpoint.revision, checkpoint.answers)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=f"Cannot save checkpoint: {exc}") from exc
+
+
 @app.post("/api/participants/{participant_id}/rounds/{round_index}/submit")
 def submit(participant_id: str, round_index: int, submission: Submission,
            x_participant_token: str | None = Header(default=None)):
@@ -258,13 +279,11 @@ def submit(participant_id: str, round_index: int, submission: Submission,
     # Check phase again on the server, never trust timers sent from the browser.
     if state["phase"] != "recall":
         raise HTTPException(status_code=409, detail="Recall has not started")
-    language = state["language"]
     if submission.math_correct > submission.math_attempts:
         raise HTTPException(status_code=422, detail="Impossible arithmetic totals")
-    score, _ = words.grade(state["list_id"], language, submission.answers, state["recall_order"])
     try:
         return database.save_result(participant_id, round_index, submission.answers,
-                                    submission.hidden_count, score,
+                                    submission.hidden_count,
                                     submission.math_attempts, submission.math_correct)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=f"Cannot submit round: {exc}") from exc
@@ -308,6 +327,24 @@ def admin_export(x_admin_token: str | None = Header(default=None)):
     writer.writerows(database.export_rows())
     return Response(out.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": "attachment; filename=study_results.csv",
+                             "Cache-Control": "no-store"})
+
+
+@app.get("/api/admin/drafts.csv")
+def admin_drafts(x_admin_token: str | None = Header(default=None)):
+    expected = os.getenv("STUDY_ADMIN_TOKEN", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="Admin export is not configured")
+    if not x_admin_token or not secrets.compare_digest(x_admin_token, expected):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    output = io.StringIO()
+    fields = ["participant_id", "protocol_version", "language", "round_index",
+              "revision", "answers", "saved_at", "started_at", "final_submitted"]
+    writer = csv.DictWriter(output, fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(database.export_drafts())
+    return Response(output.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": "attachment; filename=unfinished_drafts.csv",
                              "Cache-Control": "no-store"})
 
 

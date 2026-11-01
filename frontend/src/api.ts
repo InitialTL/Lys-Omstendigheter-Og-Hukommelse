@@ -25,6 +25,9 @@ export type StudyState = {
   words?: string[];
   pairs?: Pair[];
   review?: RoundReview[];
+  draft_revision?: number;
+  draft_answers?: string[];
+  draft_saved_at?: number | null;
   perception_done?: boolean;
   perception_deadline_at?: number | null;
   perception_timed_out?: boolean;
@@ -87,6 +90,12 @@ export const api = {
     `/api/participants/${encodeURIComponent(id)}/perception`,
     { method: 'POST', body: JSON.stringify(payload), headers: authenticatedHeaders() }
   ),
+  draft: (id: string, round: number, revision: number, answers: string[], keepalive = false) =>
+    request<{saved: boolean; revision: number}>(
+      `/api/participants/${encodeURIComponent(id)}/rounds/${round}/draft`,
+      {method: 'POST', body: JSON.stringify({revision, answers}),
+       headers: authenticatedHeaders(), keepalive}
+    ),
   submit: (id: string, round: number, answers: string[], hidden_count: number, math_attempts: number, math_correct: number) =>
     request<{ saved: boolean }>(
       `/api/participants/${encodeURIComponent(id)}/rounds/${round}/submit`,

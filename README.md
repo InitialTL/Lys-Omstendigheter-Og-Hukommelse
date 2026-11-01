@@ -1,4 +1,4 @@
-# Hukommelse LM — pilotversjon 2.7
+# Hukommelse LM — pilotprotokoll 2.7 · programvare 2.7.1
 
 En responsiv React/TypeScript-frontend med FastAPI og SQLite for et anonymt, fjernbasert pilotforsøk. **Gjeldende forskningsspørsmål:** Påvirker **oransje, blå eller nøytral grå skjermbakgrunn** hvor godt deltakerne husker nylig lærte assosiasjoner mellom pseudord og objekter?
 
@@ -24,6 +24,18 @@ Hver deltaker gjennomfører alle tre betingelsene, motbalansert mellom gruppene 
 Hver deltaker får individuell, lagret stokking. Etter alle tre runder kan deltakeren frivillig svare på to nøytrale spørsmål om opplevd effekt før vedkommende ser svarene sine, fasiten og regneoppgavetotalene. Fasit deles aldri ut før hele forsøket er fullført. 12 studiespråk er støttet for ordlistene; flere av de siste seks språkene bruker fremdeles engelske grensesnitttekster og trenger språklig pilotkontroll.
 
 **Nytt i 2.7:** Regneoppgavenes spørsmålstegn har samme dempede farge som resten av likningen. De tre hukommelsesrundene er lagret på serveren før de valgfrie spørsmålene vises. Skjemaet har nå en serverkontrollert svarfrist på 90 sekunder, og resultatene vises automatisk etter utløpet. Manglende spørreskjemasvar skilles fra bevisst «Hopp over». Se [protokoll 2.7](docs/PROTOCOL_V27.md). Tidligere resultater beholdes med sin opprinnelige versjonsmerking. Dette er ikke en måling av placeboeffekt.
+
+## Driftssikker oppdatering i programvare 2.7.1
+
+Denne rettinga **endrar ikkje forsøksstimuli eller forsøksprotokoll 2.7**. Deltakarar i protokoll 2.7 kan halde fram med den same sikre økta. Alle åtte svarfelta blir lagra i nettlesaren og blir i tillegg sende til ein autentisert, versjonert SQLite-sikkerheitskopi under svarfasen (med kort utsetjing for å spare Raspberry Pi-ressursar). Ved lukking av fana prøver klienten å sende siste kopi med `keepalive`.
+
+* Når ein deltakar kjem att før fristen, blir siste godtekne kopi frå serveren gjenoppretta, eller ein nyare lokal kopi når denne finst.
+* **Etter svarfristen er det berre svar som allereie var lagra på serveren før fristen, som kan telje.** Ein innsending etter fristen blir merka `submitted_late=1` og utelaten frå hovudanalysen.
+* Ufullførte, serverlagra utkast blir verande i `study_drafts` og kan eksporterast separat via autorisert `GET /api/admin/drafts.csv`. Dei blir **ikkje** blanda inn i skåra svar eller markerte som ferdige deltakarar.
+* Ved tilbaketrekking av samtykke blir også utkast sletta.
+* Ei nettverksfråkopling før **noka** sikkerheitskopi er motteken kan ikkje garanterast løyst av ei nettside. Lokale svar blir forsøkt gjenoppretta på same eining.
+
+Sjå [stegvis produksjonsveiledning](docs/DEPLOYMENT.md) med Cloudflare Tunnel, Raspberry Pi, automatisk oppstart, backups og sikkerheitskontrollar. For trygg online SQLite-backup: `python scripts/backup_sqlite.py /sikker/mappe/for/backups` og kopiér backupfilene kryptert til ei anna eining. **Ikkje ta berre ei filkopi av ein aktiv WAL-database.**
 
 ## Utvikling lokalt
 

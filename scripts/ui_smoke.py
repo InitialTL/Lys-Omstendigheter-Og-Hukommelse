@@ -5,6 +5,7 @@ analytics, paid API, or existing participant data is used.
 """
 from __future__ import annotations
 import os
+import json
 import sqlite3
 from datetime import datetime, timezone
 import subprocess
@@ -106,6 +107,19 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         assert page.locator('.answers-grid input').count() == 8, 'Recall auto-submitted immediately'
         assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), f'Horizontal overflow at {width}px'
         page.locator('.answers-grid input').first.fill('test')
+        # The server must have a pre-deadline checkpoint before any final submit.
+        page.get_by_text('Answers backed up to the server.').wait_for(timeout=8000)
+        with sqlite3.connect(db_path) as db:
+            draft = db.execute('SELECT answers,revision FROM study_drafts WHERE participant_id=? AND round_index=?',
+                               (participant_id,round_index)).fetchone()
+            assert draft and json.loads(draft[0])[0] == 'test' and draft[1] > 0, draft
+        if round_index == 0:
+            # Simulate a closed tab / browser refresh without final submission.
+            # The server checkpoint must restore the answer, not merely localStorage.
+            page.evaluate('localStorage.removeItem(`lm_v2_draft_${localStorage.getItem("lm_v2_participant")}_0`)')
+            page.reload(wait_until='networkidle')
+            page.locator('.answers-grid input').first.wait_for()
+            assert page.locator('.answers-grid input').first.input_value() == 'test', 'Server checkpoint was lost on reload'
         if round_index == 1:
             # Server moves beyond the recall deadline without receiving a POST.
             # Reloading then MUST lock and automatically submit the 8 answers.

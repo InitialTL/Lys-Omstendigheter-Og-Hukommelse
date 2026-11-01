@@ -78,3 +78,24 @@ CSP and dependency review reduce but do not eliminate XSS risk. Cloudflare
 helps with internet-origin threats, not malicious code, stolen admin credentials,
 local malware, physical device compromise or denial of service against the Pi.
 Manual penetration testing and an actual deployment audit are still required.
+
+## Deployment patch 2.7.1
+
+* Every recall draft POST requires the participant bearer secret, a current
+  protocol session, a valid current round, an 8-answer payload and a monotonically
+  increasing revision. Older in-flight requests cannot overwrite newer drafts.
+* Checkpoints are accepted only during the actual server-timed 120-second recall
+  phase. A late final submission **cannot** introduce new answers; only the last
+  pre-deadline checkpoint is scored, and the result is flagged late and excluded
+  from the primary descriptive summary.
+* The separate `study_drafts` table holds unfinished checkpoint data. The
+  administrator-only `/api/admin/drafts.csv` endpoint reveals these partial
+  records; never expose it publicly without authenticated access.
+* Runtime containers run as UID/GID 10001, include a local healthcheck, and have
+  only `/data` and a small tmpfs writable. For **existing** Docker volumes
+  created by older root-running containers, fix ownership once with:
+  `docker compose run --rm --user root --entrypoint sh hukommelse-lm -c 'chown -R 10001:10001 /data'`.
+* Back up with `python scripts/backup_sqlite.py` or the container command in
+  `docs/DEPLOYMENT.md`. Backups must be encrypted and copied **off the Pi**.
+* The browser keeps an offline fallback; no client-side mechanism can guarantee
+  an unsent event reaches a server during a power or network failure.

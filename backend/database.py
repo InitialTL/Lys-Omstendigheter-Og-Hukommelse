@@ -85,6 +85,15 @@ def init_db() -> None:
                 PRIMARY KEY (participant_id, round_index),
                 FOREIGN KEY(participant_id) REFERENCES study_participants(id)
             );
+            CREATE TABLE IF NOT EXISTS study_drafts (
+                participant_id TEXT NOT NULL,
+                round_index INTEGER NOT NULL CHECK(round_index BETWEEN 0 AND 2),
+                revision INTEGER NOT NULL CHECK(revision BETWEEN 1 AND 1000000),
+                answers TEXT NOT NULL,
+                saved_at REAL NOT NULL,
+                PRIMARY KEY(participant_id, round_index),
+                FOREIGN KEY(participant_id) REFERENCES study_participants(id)
+            );
             CREATE INDEX IF NOT EXISTS idx_study_results_condition
               ON study_results(condition);
             CREATE TABLE IF NOT EXISTS study_perceptions (
@@ -237,10 +246,19 @@ def get_next(participant_id: str) -> dict | None:
             phase, phase_end = "distraction", started["started_at"] + ACCLIMATION_SECONDS + LEARN_SECONDS + DISTRACT_SECONDS
         else:
             phase, phase_end = "recall", started["started_at"] + ACCLIMATION_SECONDS + LEARN_SECONDS + DISTRACT_SECONDS + RECALL_SECONDS
-        return {**common, "round_index": idx, "condition": condition,
-                "list_id": list_id, "phase": phase, "phase_end_at": phase_end,
-                "learning_order": json.loads(started["learning_order"]),
-                "recall_order": json.loads(started["recall_order"])}
+        result = {**common, "round_index": idx, "condition": condition,
+                  "list_id": list_id, "phase": phase, "phase_end_at": phase_end,
+                  "learning_order": json.loads(started["learning_order"]),
+                  "recall_order": json.loads(started["recall_order"])}
+        if phase == "recall":
+            checkpoint = db.execute(
+                "SELECT revision,answers,saved_at FROM study_drafts WHERE participant_id=? AND round_index=?",
+                (participant_id, idx),
+            ).fetchone()
+            result["draft_revision"] = checkpoint["revision"] if checkpoint else 0
+            result["draft_answers"] = json.loads(checkpoint["answers"]) if checkpoint else [""] * WORDS_PER_ROUND
+            result["draft_saved_at"] = checkpoint["saved_at"] if checkpoint else None
+        return result
 
 
 def start_round(participant_id: str) -> dict | None:
@@ -268,8 +286,70 @@ def start_round(participant_id: str) -> dict | None:
     return get_next(participant_id)
 
 
+def save_draft(participant_id: str, round_index: int, revision: int, answers: list[str]) -> dict:
+    """Persist a small checkpoint during recall. Earlier revisions never overwrite newer ones.
+
+    A retry after the server deadline cannot alter the stored answers, even if the
+    browser clock is wrong. This also preserves unfinished data when a tab closes.
+    """
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        participant = db.execute(
+            "SELECT protocol_version FROM study_participants WHERE id=?", (participant_id,)
+        ).fetchone()
+        if not participant or participant["protocol_version"] != PROTOCOL_VERSION:
+            raise ValueError("participant")
+        if db.execute(
+            "SELECT 1 FROM study_results WHERE participant_id=? AND round_index=?",
+            (participant_id, round_index)
+        ).fetchone():
+            raise ValueError("already_submitted")
+        completed = db.execute(
+            "SELECT COUNT(*) FROM study_results WHERE participant_id=?", (participant_id,)
+        ).fetchone()[0]
+        if completed != round_index:
+            raise ValueError("out_of_order")
+        started = db.execute(
+            "SELECT started_at FROM study_rounds WHERE participant_id=? AND round_index=?",
+            (participant_id, round_index)
+        ).fetchone()
+        if not started:
+            raise ValueError("not_started")
+        now = time.time()
+        recall_start = started["started_at"] + ACCLIMATION_SECONDS + LEARN_SECONDS + DISTRACT_SECONDS
+        recall_end = recall_start + RECALL_SECONDS
+        if now < recall_start:
+            raise ValueError("too_early")
+        if now >= recall_end:
+            raise ValueError("deadline_expired")
+        db.execute("""INSERT INTO study_drafts(participant_id,round_index,revision,answers,saved_at)
+           VALUES(?,?,?,?,?) ON CONFLICT(participant_id,round_index)
+           DO UPDATE SET revision=excluded.revision,answers=excluded.answers,saved_at=excluded.saved_at
+           WHERE excluded.revision > study_drafts.revision""",
+           (participant_id, round_index, revision, json.dumps(answers, ensure_ascii=False), now))
+        current = db.execute(
+            "SELECT revision FROM study_drafts WHERE participant_id=? AND round_index=?",
+            (participant_id, round_index)
+        ).fetchone()[0]
+    return {"saved": current == revision, "revision": current}
+
+
+def export_drafts() -> list[dict]:
+    """Unfinished checkpoints are separate from scored submissions by design."""
+    with connect() as db:
+        rows = db.execute("""SELECT d.participant_id,p.protocol_version,p.language,
+             d.round_index,d.revision,d.answers,d.saved_at,
+             q.started_at,r.participant_id IS NOT NULL AS final_submitted
+             FROM study_drafts d
+             JOIN study_participants p ON p.id=d.participant_id
+             JOIN study_rounds q ON q.participant_id=d.participant_id AND q.round_index=d.round_index
+             LEFT JOIN study_results r ON r.participant_id=d.participant_id AND r.round_index=d.round_index
+             WHERE r.participant_id IS NULL ORDER BY d.saved_at""").fetchall()
+        return [dict(row) for row in rows]
+
+
 def save_result(participant_id: str, round_index: int, answers: list[str],
-                hidden_count: int, score: int, math_attempts: int = 0, math_correct: int = 0) -> dict:
+                hidden_count: int, math_attempts: int = 0, math_correct: int = 0) -> dict:
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         participant = db.execute("SELECT * FROM study_participants WHERE id=?", (participant_id,)).fetchone()
@@ -292,12 +372,27 @@ def save_result(participant_id: str, round_index: int, answers: list[str],
         condition = SEQUENCES["ABC".index(participant["group_name"])][round_index]
         list_id = json.loads(participant["list_order"])[round_index]
         recall_seconds = max(0, elapsed - ACCLIMATION_SECONDS - LEARN_SECONDS - DISTRACT_SECONDS)
-        late = int(recall_seconds > RECALL_SECONDS + 5)
+        late = int(recall_seconds >= RECALL_SECONDS)
+        if late:
+            # Any answers arriving after the deadline are untrusted. Only an
+            # earlier server-side checkpoint can be scored after expiration.
+            checkpoint = db.execute(
+                "SELECT answers FROM study_drafts WHERE participant_id=? AND round_index=?",
+                (participant_id, round_index)
+            ).fetchone()
+            answers = json.loads(checkpoint["answers"]) if checkpoint else [""] * WORDS_PER_ROUND
+        # Score in the same transaction as persistence, using authoritative
+        # recall ordering, never a score or late answers supplied by the client.
+        import words
+        recall_order = json.loads(started["recall_order"])
+        score, _ = words.grade(list_id, participant["language"], answers, recall_order)
         db.execute("""INSERT INTO study_results
           (participant_id,round_index,condition,list_id,answers,score,max_score,recall_seconds,hidden_count,submitted_late,math_attempts,math_correct,completed_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
           (participant_id, round_index, condition, list_id, json.dumps(answers, ensure_ascii=False),
            score, WORDS_PER_ROUND, recall_seconds, hidden_count, late, math_attempts, math_correct, now_iso()))
+        db.execute("DELETE FROM study_drafts WHERE participant_id=? AND round_index=?",
+                   (participant_id, round_index))
     return {"saved": True}
 
 
@@ -377,6 +472,7 @@ def delete_participant(participant_id: str) -> bool:
         row = db.execute("SELECT id FROM study_participants WHERE id=?", (participant_id,)).fetchone()
         if not row:
             return False
+        db.execute("DELETE FROM study_drafts WHERE participant_id=?", (participant_id,))
         db.execute("DELETE FROM study_perceptions WHERE participant_id=?", (participant_id,))
         db.execute("DELETE FROM study_results WHERE participant_id=?", (participant_id,))
         db.execute("DELETE FROM study_rounds WHERE participant_id=?", (participant_id,))

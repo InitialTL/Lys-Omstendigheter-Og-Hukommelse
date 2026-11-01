@@ -716,3 +716,122 @@ def test_v26_data_remain_saved_but_not_reused_in_v27(client):
                  headers={'X-Participant-Token':p['access_token']}).status_code == 401
     with database.connect() as db:
         assert db.execute('SELECT COUNT(*) FROM study_participants WHERE id=?',(p['participant_id'],)).fetchone()[0] == 1
+
+# Recovery and deadline checks for the deployment-readiness patch.
+def test_recall_checkpoint_survives_disconnect_and_restart(client, monkeypatch):
+    c, clock = client
+    participant = c.post('/api/participants', json={
+        'language': 'en', 'age_band': '18_24', 'gender': 'prefer_not', 'consent': True,
+    }).json()
+    pid = participant['participant_id']
+    url = f'/api/participants/{pid}'
+    c.headers['X-Participant-Token'] = participant['access_token']
+    assert c.post(url + '/rounds/0/draft', json={'revision': 1, 'answers': ['a'] * 8}).status_code == 409
+    assert c.post(url + '/rounds/start').status_code == 200
+    clock['now'] += database.ACCLIMATION_SECONDS + database.LEARN_SECONDS + database.DISTRACT_SECONDS
+    saved = c.post(url + '/rounds/0/draft', json={'revision': 1, 'answers': ['chair'] + [''] * 7})
+    assert saved.status_code == 200 and saved.json() == {'saved': True, 'revision': 1}
+    # Simulate worker restart and a new browser retrieving the same server state.
+    database.init_db()
+    next_state = c.get(url + '/next').json()
+    assert next_state['draft_revision'] == 1
+    assert next_state['draft_answers'] == ['chair'] + [''] * 7
+    # The authenticated admin can export unfinished checkpoints but they are
+    # never silently treated as study_results / finished participant data.
+    assert database.export_drafts()[0]['revision'] == 1
+    assert c.get('/api/admin/drafts.csv').status_code == 503
+    monkeypatch.setenv('STUDY_ADMIN_TOKEN', 'only-for-tests')
+    assert c.get('/api/admin/drafts.csv').status_code == 403
+    export = c.get('/api/admin/drafts.csv', headers={'X-Admin-Token': 'only-for-tests'})
+    assert export.status_code == 200 and pid in export.text
+    assert c.get(url + '/next').json()['finished'] is False
+    with database.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM study_results').fetchone()[0] == 0
+
+
+def test_checkpoint_revision_order_auth_and_expired_replay(client):
+    c, clock = client
+    p = c.post('/api/participants', json={
+        'language': 'en', 'age_band': '18_24', 'gender': 'prefer_not', 'consent': True,
+    }).json()
+    url = f"/api/participants/{p['participant_id']}"
+    assert c.post(url+'/rounds/0/draft',json={'revision':1,'answers':['x']*8}).status_code == 401
+    c.headers['X-Participant-Token'] = p['access_token']
+    c.post(url+'/rounds/start')
+    clock['now'] += 165
+    good = ['one'] + [''] * 7
+    newer = ['two'] + [''] * 7
+    assert c.post(url+'/rounds/0/draft',json={'revision':2,'answers':newer}).json()['saved']
+    stale = c.post(url+'/rounds/0/draft',json={'revision':1,'answers':good})
+    assert stale.status_code == 200 and stale.json() == {'saved':False,'revision':2}
+    assert c.get(url+'/next').json()['draft_answers'] == newer
+    assert c.post(url+'/rounds/0/draft',json={'revision':3,'answers':['a'*81]+['']*7}).status_code == 422
+    assert c.post(url+'/rounds/0/draft',json={'revision':3,'answers':['']*7}).status_code == 422
+    clock['now'] += database.RECALL_SECONDS + 1
+    assert c.post(url+'/rounds/0/draft',json={'revision':3,'answers':['changed']*8}).status_code == 409
+    # Client sends forged correct answers after the cutoff, which MUST NOT be
+    # considered in scoring. Only the pre-deadline checkpoint is eligible.
+    state = c.get(url+'/next').json()
+    forged = ['apple'] * 8
+    completed = c.post(url+'/rounds/0/submit',json={'answers':forged})
+    assert completed.status_code == 200
+    with database.connect() as db:
+        row = db.execute('SELECT answers,score,submitted_late FROM study_results').fetchone()
+        assert json.loads(row['answers']) == newer
+        assert row['submitted_late'] == 1
+        assert row['score'] <= 1
+        assert db.execute('SELECT COUNT(*) FROM study_drafts').fetchone()[0] == 0
+
+
+def test_early_submission_uses_latest_answers_and_cleans_checkpoint(client):
+    c,clock = client
+    p=c.post('/api/participants',json={
+        'language':'en','age_band':'18_24','gender':'prefer_not','consent':True
+    }).json()
+    c.headers['X-Participant-Token']=p['access_token']
+    url=f"/api/participants/{p['participant_id']}"
+    c.post(url+'/rounds/start')
+    clock['now']+=165
+    c.post(url+'/rounds/0/draft',json={'revision':1,'answers':['']*8})
+    state=c.get(url+'/next').json()
+    expected={pair['word']:pair['meaning'] for pair in __import__('words').learning_pairs(state['list_id'],'en')}
+    answers=[expected[word] for word in state['words']]
+    assert c.post(url+'/rounds/0/submit',json={'answers':answers}).status_code==200
+    with database.connect() as db:
+        result=db.execute('SELECT score,submitted_late,answers FROM study_results').fetchone()
+        assert result['score']==8 and result['submitted_late']==0
+        assert json.loads(result['answers'])==answers
+        assert db.execute('SELECT COUNT(*) FROM study_drafts').fetchone()[0]==0
+    assert c.post(url+'/rounds/0/draft',json={'revision':4,'answers':answers}).status_code==409
+
+
+def test_withdrawal_also_removes_unfinished_checkpoint(client):
+    c,clock=client
+    p=c.post('/api/participants',json={
+        'language':'nb','age_band':'16_17','gender':'prefer_not','consent':True
+    }).json()
+    c.headers['X-Participant-Token']=p['access_token']
+    url=f"/api/participants/{p['participant_id']}"
+    c.post(url+'/rounds/start')
+    clock['now']+=165
+    assert c.post(url+'/rounds/0/draft',json={'revision':1,'answers':['stol']+['']*7}).status_code==200
+    assert c.delete(url).status_code==204
+    with database.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM study_drafts').fetchone()[0]==0
+        assert db.execute('SELECT COUNT(*) FROM study_participants').fetchone()[0]==0
+
+
+def test_late_post_without_checkpoint_scores_no_unsaved_answers(client):
+    c,clock=client
+    p=c.post('/api/participants',json={
+        'language':'en','age_band':'18_24','gender':'prefer_not','consent':True
+    }).json()
+    c.headers['X-Participant-Token']=p['access_token']
+    url=f"/api/participants/{p['participant_id']}"
+    c.post(url+'/rounds/start')
+    clock['now']+=165+database.RECALL_SECONDS+20
+    assert c.post(url+'/rounds/0/submit',json={'answers':['apple']*8}).status_code==200
+    with database.connect() as db:
+        row=db.execute('SELECT score,answers,submitted_late FROM study_results').fetchone()
+        assert row['score']==0 and json.loads(row['answers'])==['']*8
+        assert row['submitted_late']==1

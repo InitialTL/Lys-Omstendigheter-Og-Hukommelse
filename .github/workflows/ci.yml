@@ -48,3 +48,22 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Test mobile, tablet, desktop and complete experiment flow
         run: python scripts/ui_smoke.py
+  container-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production container
+        run: docker build -t hukommelse-lm:ci .
+      - name: Start container as unprivileged user and probe health
+        run: |
+          docker run -d --rm --name hukommelse-smoke \
+            --read-only --tmpfs /tmp:size=16m,noexec,nosuid,nodev \
+            -p 127.0.0.1:18081:8000 hukommelse-lm:ci
+          trap 'docker rm -f hukommelse-smoke >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18081/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:18081/api/health
+          docker exec hukommelse-smoke python -c "import os; assert os.getuid()!=0; print('Non-root UID:',os.getuid())"
+          docker exec hukommelse-smoke python -c "import sqlite3; c=sqlite3.connect('/data/results.db'); assert c.execute(\"select name from sqlite_master where name='study_drafts'\").fetchone(); print('SQLite checkpoint schema ready')"

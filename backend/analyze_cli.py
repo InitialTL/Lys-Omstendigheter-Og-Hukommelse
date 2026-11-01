@@ -13,6 +13,10 @@ def main():
     late = [row for row in rows if row['submitted_late']]
     if late:
         print(f'Runder etter svarfristen utelatt fra hovedanalysen: {len(late)}.')
+    unfinished = [d for d in database.export_drafts() if d['protocol_version'] == database.PROTOCOL_VERSION]
+    if unfinished:
+        print(f'Ufullførte, sikkerhetslagrede svarutkast: {len(unfinished)}. De er ikke skåret. Se administratorens drafts.csv.')
+    late_by_condition = Counter(r['condition'] for r in late)
     rows = [row for row in rows if not row['submitted_late']]
     if not rows:
         print('Ingen runder er fullført innen svarfristen ennå.')
@@ -32,7 +36,7 @@ def main():
         scores = [r['score'] for r in entries]
         print(f'{condition:<14} {len(scores):>8} {mean(scores) if scores else float("nan"):>10.2f} '
               f'{stdev(scores) if len(scores)>1 else 0:>12.2f} '
-              f'{sum(int(r["submitted_late"]) for r in entries):>10}')
+              f'{late_by_condition[condition]:>10}')
     complete_rows = [data for data in by_person.values() if len(data) == 3]
     if complete_rows:
         print('\nInnenpersonsforskjeller (bare fullførte deltakere):')
