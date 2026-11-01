@@ -1,6 +1,6 @@
 import type { Language } from './i18n';
 export type { Language } from './i18n';
-export type Condition = 'WARM' | 'COOL' | 'DARK';
+export type Condition = 'ORANGE' | 'BLUE' | 'NEUTRAL';
 export type Phase = 'setup' | 'acclimation' | 'learning' | 'distraction' | 'recall';
 
 export type Pair = { word: string; meaning: string };
@@ -35,9 +35,9 @@ export type Registration = {
 };
 
 export const COLORS: Record<Condition, string> = {
-  WARM: '#D9AA91',
-  COOL: '#9BB6E4',
-  DARK: '#080B11',
+  ORANGE: '#F0A34B',
+  BLUE: '#8AB7EA',
+  NEUTRAL: '#B3B3B3',
 };
 
 const TOKEN_KEY = 'lm_v2_auth';

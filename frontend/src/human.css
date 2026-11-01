@@ -14,7 +14,7 @@
 .eyebrow,.section-kicker {letter-spacing:.09em}
 .btn,.field select,.language-switch select,.os-guide select {border-radius:4px}
 .process-row {border-color:#e4e3db}
-/* Keep the identical neutral study panel across warm, cool and dark conditions.
+/* Keep the identical neutral study panel across orange, blue and neutral gray conditions.
    Only the surrounding condition field changes. */
 .ambient {min-height:100dvh}
 .ambient-overlay{background:transparent}

@@ -1,3 +1,5 @@
+> **ARKIVERT TIDLIGERE PROTOKOLL.** Gjeldende oppsett er [protokoll 2.4](PROTOCOL_V24.md) med oransje, blå og nøytral grå.
+
 # Foreløpig forsøksprotokoll — Hukommelse LM
 
 **Status:** Pilotprotokoll, må kvalitetssikres før datainnsamling. V2.1, 31. oktober 2026.

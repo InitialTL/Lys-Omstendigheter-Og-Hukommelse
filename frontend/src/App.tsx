@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import {
   ArrowRight, Brain, Check, CheckCircle2, Clock3, Eye,
-  Focus, Lightbulb, LockKeyhole, Monitor, Moon, RefreshCw, Maximize, Minimize, VolumeX,
+  Focus, Lightbulb, LockKeyhole, Monitor, Circle, RefreshCw, Maximize, Minimize, VolumeX,
   ShieldCheck, Sun, ThermometerSun,
 } from 'lucide-react';
 import { api, COLORS, storeParticipantToken, clearParticipantToken } from './api';
@@ -15,9 +15,9 @@ const PARTICIPANT_KEY = 'lm_v2_participant';
 const LANGUAGE_KEY = 'lm_v2_language';
 const CALIBRATED_KEY = 'lm_v2_calibrated';
 const LABELS: Record<Condition, { nb: string; en: string; descriptionNb: string; descriptionEn: string }> = {
-  WARM: { nb: 'Varmt lys', en: 'Warm light', descriptionNb: 'Varm skjermfarge', descriptionEn: 'Warm screen color' },
-  COOL: { nb: 'Kaldt lys', en: 'Cool light', descriptionNb: 'Kald skjermfarge', descriptionEn: 'Cool screen color' },
-  DARK: { nb: 'Mørkt miljø', en: 'Dark environment', descriptionNb: 'Nesten svart skjermbakgrunn', descriptionEn: 'Near-black screen background' },
+  ORANGE: { nb: 'Oransje', en: 'Orange', descriptionNb: 'Oransje skjermbakgrunn', descriptionEn: 'Orange screen background' },
+  BLUE: { nb: 'Blå', en: 'Blue', descriptionNb: 'Blå skjermbakgrunn', descriptionEn: 'Blue screen background' },
+  NEUTRAL: { nb: 'Nøytral grå', en: 'Neutral gray', descriptionNb: 'Grå skjermbakgrunn', descriptionEn: 'Gray screen background' },
 };
 const draftKey = (id: string, index: number) => `lm_v2_draft_${id}_${index}`;
 const hiddenKey = (id: string, index: number) => `lm_v2_hidden_${id}_${index}`;
@@ -78,8 +78,8 @@ function Intro({ lang, setLang, onRegister, busy, error }:
       <div className="intro-main">
         <div className="eyebrow"><span aria-hidden="true">LM / 03</span> {t('DIGITALT FORSKNINGSFORSØK', 'A DIGITAL RESEARCH EXPERIMENT')}</div>
         <h1>{t('Kan fargene rundt oss', 'Can the colors around us')}<br /><em>{t('påvirke hukommelsen?', 'affect our memory?')}</em></h1>
-        <p className="hero-sub">{t('Bli med på et kort forskningsforsøk der vi undersøker om varme, kalde og mørke skjermmiljøer påvirker hvor lett vi lærer nye ord.',
-          'Join a short research study exploring whether warm, cool and dark screen environments affect how easily we learn new words.')}</p>
+        <p className="hero-sub">{t('Bli med på et kort forskningsforsøk der vi sammenligner oransje, blå og grå skjermbakgrunn og undersøker om fargen påvirker hvor lett vi husker nye ord.',
+          'Join a short research study comparing orange, blue and gray screen backgrounds to see whether background color affects word memory.')}</p>
         <div className="stats-strip">
           <div><Clock3 size={21}/><strong>15–18</strong><span>{t('minutter', 'minutes')}</span></div>
           <div><LayersIcon/><strong>3</strong><span>{t('runder', 'rounds')}</span></div>
@@ -127,7 +127,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
 
 function LayersIcon() { return <div className="layers-icon"><span/><span/><span/></div>; }
 function Footer({ lang }: { lang: Language }) {
-  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.3</span></footer>;
+  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.4</span></footer>;
 }
 
 function FullscreenToggle({ lang }: { lang: Language }) {
@@ -207,7 +207,7 @@ function Calibration({ lang, onNext, onLanguageChange }: { lang: Language; onNex
 }
 
 function ConditionIcon({ condition, size = 21 }: { condition: Condition; size?: number }) {
-  return condition === 'WARM' ? <ThermometerSun size={size}/> : condition === 'COOL' ? <Sun size={size}/> : <Moon size={size}/>;
+  return condition === 'ORANGE' ? <ThermometerSun size={size}/> : condition === 'BLUE' ? <Sun size={size}/> : <Circle size={size}/>;
 }
 
 function ConditionDots({ current }: { current: number }) {
@@ -380,7 +380,7 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefres
   onStart: () => Promise<void>; onRefresh: () => Promise<void>;
   onSubmit: (answers: string[], hiddenCount: number) => Promise<void>; onWithdraw: () => Promise<void>; busy: boolean; error: string | null;
 }) {
-  const condition = state.condition ?? 'DARK';
+  const condition = state.condition ?? 'NEUTRAL';
   const phase = state.phase ?? 'setup';
   const seconds = useCountdown(state.phase_end_at, offsetSeconds);
   const index = state.round_index ?? 0;

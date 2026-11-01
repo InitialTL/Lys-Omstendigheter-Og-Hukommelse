@@ -1,3 +1,5 @@
+> **ARKIVERT TIDLIGERE PROTOKOLL.** Gjeldende oppsett er [protokoll 2.4](PROTOCOL_V24.md) med oransje, blå og nøytral grå.
+
 # Hukommelse LM: pilot protocol 2.3 (31 October 2026)
 
 **Do not pool these scores with 2.1 or 2.2.** Memory-item counts, stimulus lists, time limits, and scoring order have changed. Existing data remain stored with their earlier `protocol_version` values, and the analysis CLI selects only version 2.3.

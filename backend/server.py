@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, ConfigDict
 import database
 import words
 
-app = FastAPI(title="Hukommelse LM API", version="2.3.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="Hukommelse LM API", version="2.4.0", docs_url=None, redoc_url=None)
 
 # A publicly reachable origin must be placed behind HTTPS and a firewall or
 # Cloudflare Tunnel. Never accept arbitrary Host headers on the origin.
@@ -171,16 +171,16 @@ def build_state(participant_id: str) -> dict:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "2.3.0"}
+    return {"status": "ok", "version": "2.4.0"}
 
 
 @app.get("/api/config")
 def config():
     return {
         "conditions": {
-            "WARM": {"hex": "#D9AA91", "label": "warm"},
-            "COOL": {"hex": "#9BB6E4", "label": "cool"},
-            "DARK": {"hex": "#080B11", "label": "dark"},
+            "ORANGE": {"hex": "#F0A34B", "label": "orange"},
+            "BLUE": {"hex": "#8AB7EA", "label": "blue"},
+            "NEUTRAL": {"hex": "#B3B3B3", "label": "neutral gray"},
         },
         "learning_seconds": database.LEARN_SECONDS,
         "distraction_seconds": database.DISTRACT_SECONDS,
@@ -188,7 +188,7 @@ def config():
         "acclimation_seconds": database.ACCLIMATION_SECONDS,
         "words_per_round": database.WORDS_PER_ROUND,
         "rounds": 3,
-        "measurement": "Screen background sRGB values; not calibrated Kelvin or lux",
+        "measurement": "Backgrounds matched approximately for calculated sRGB relative luminance (~0.45); not physically calibrated, nor matched for perceived brightness, Kelvin or lux",
     }
 
 

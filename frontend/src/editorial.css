@@ -105,7 +105,7 @@ h1 em {font-style:normal;color:var(--accent-text)}
 .study-center {padding:25px 0 8px}
 .study-center .pill {border-radius:5px;background:#253f40;color:#d3e8df;font-weight:650}
 .light-orb {margin:23px 0 16px;border-radius:10px;width:77px;height:77px;box-shadow:none}
-.light-orb-warm {background:#624842}.light-orb-cool{background:#364f67}.light-orb-dark{background:#37404b}
+.light-orb-orange {background:#935521}.light-orb-blue{background:#3f668e}.light-orb-neutral{background:#616861}
 .study-center h1,.phase-main h1 {font-weight:730;letter-spacing:-.04em}
 .study-center>p,.phase-main>p {color:#bfd0cf;font-size:13px;line-height:1.6}
 .instruction-card {background:#172a33;border-color:#3c5259;border-radius:8px}

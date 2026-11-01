@@ -32,7 +32,7 @@ def main():
     complete_rows = [data for data in by_person.values() if len(data) == 3]
     if complete_rows:
         print('\nInnenpersonsforskjeller (bare fullførte deltakere):')
-        for a, b in [('WARM','COOL'), ('WARM','DARK'), ('COOL','DARK')]:
+        for a, b in [('ORANGE','BLUE'), ('ORANGE','NEUTRAL'), ('BLUE','NEUTRAL')]:
             differences = [p[a] - p[b] for p in complete_rows]
             print(f'  {a} – {b}: {mean(differences):+.2f} poeng i snitt (n={len(differences)})')
     print('\nMerk: Deskriptiv pilotstatistikk, ikke hypotesetest eller kausalt bevis.')

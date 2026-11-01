@@ -55,10 +55,17 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     participant_id = page.evaluate("localStorage.getItem('lm_v2_participant')")
     assert participant_id
     learned_words = []
+    conditions_seen = []
+    expected_colors = {'ORANGE': 'rgb(240, 163, 75)', 'BLUE': 'rgb(138, 183, 234)', 'NEUTRAL': 'rgb(179, 179, 179)'}
     for round_index in range(3):
         page.get_by_role('button', name='Start this round').click()
         page.locator('.acclimation-screen').wait_for()
         assert page.locator('.acclimation-screen .study-card').count() == 0
+        condition = next(name for name in expected_colors if page.locator('.acclimation-' + name.lower()).count())
+        assert condition not in conditions_seen, f'Duplicate condition: {condition}'
+        conditions_seen.append(condition)
+        rendered = page.locator('.acclimation-screen').evaluate('(node) => getComputedStyle(node).backgroundColor')
+        assert rendered == expected_colors[condition], (condition, rendered)
         advance(db_path, participant_id, round_index, 61)
         page.reload(wait_until='networkidle')
         page.locator('.pairs-grid .pair-tile').first.wait_for()
@@ -87,6 +94,7 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
             page.get_by_role('button', name='Start this round').wait_for()
         else:
             page.locator('.results-review').wait_for()
+    assert set(conditions_seen) == set(expected_colors), conditions_seen
     with sqlite3.connect(db_path) as db:
         saved = db.execute('SELECT score,math_attempts,math_correct FROM study_results WHERE participant_id=? ORDER BY round_index',
                            (participant_id,)).fetchall()

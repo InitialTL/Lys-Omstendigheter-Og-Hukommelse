@@ -1,34 +1,31 @@
-# Hukommelse LM — versjon 2.1
+# Hukommelse LM — pilotversjon 2.4
 
-En komplett **React + TypeScript / FastAPI / SQLite**-app for et fjernbasert pilotforsøk om hvorvidt varme, kalde og mørke **skjermbakgrunner** påvirker læring av nye ordassosiasjoner. Nettsiden er tilgjengelig på norsk, engelsk, svensk, tysk, fransk og spansk og har responsivt design.
+En responsiv React/TypeScript-frontend med FastAPI og SQLite for et anonymt, fjernbasert pilotforsøk. **Gjeldende forskningsspørsmål:** Påvirker **oransje, blå eller nøytral grå skjermbakgrunn** hvor godt deltakerne husker nylig lærte assosiasjoner mellom pseudord og objekter?
 
-> **Forskningspresisjon:** Dette er et forsøk med presise **sRGB/HEX-verdier**, ikke en kalibrert måling av 3000 K, 10000 K, lux eller lys som når netthinnen. Svart bakgrunn gir mye lavere lysmengde enn fargebakgrunnene. Den forskjellen må omtales som en begrensning i rapporten. Dette er en teknisk komplett pilot, men **ikke** en ferdig vitenskapelig validert metode eller automatisk godkjent for offentlig forskning.
+[Les den gjeldende forsøksprotokollen](docs/PROTOCOL_V24.md). Tidligere [protokoll 2.3](docs/PROTOCOL_V23.md) og [eldre prosjektnotater](docs/PROTOCOL.md) er arkivert og skal ikke brukes som beskrivelse av den nye datainnsamlingen.
 
-## Funksjoner
+## Fargebetingelser i 2.4
 
-- Registrering: språk (norsk/engelsk/svensk/tysk/fransk/spansk), aldersgruppe, valgfritt kjønn og eksplisitt samtykke.
-- Lokal lagring av deltaker-ID, valgt språk og ufullstendige svar for gjenopptakelse.
-- Kalibreringsveiledning for Windows, macOS, Linux, iOS, Android og eksterne skjermer; ingen musikk eller lyd, fast skjermlysstyrke og fargejustering av.
-- Svak lys-på-lys/mørk-på-mørk kontrastkontroll: kun en subjektiv tilpasning, **ikke** et validert lysmåleinstrument.
-- Fullskjermknappen veksler mellom å gå inn i og ut av fullskjerm og viser feilmelding om nettleseren blokkerer funksjonen.
-- Tre bakgrunnsfarger: `WARM #D9AA91`, `COOL #9BB6E4`, `DARK #080B11`.
-- Gruppefordeling A/B/C med motbalansert lysrekkefølge, pluss seks motbalanserte ordliste-rekkefølger **innen hver gruppe**.
-- Hver runde: **60 sekunder tilvenning med bare skjermfarge og nedtelling**, 60 sekunder memorering, 30 sekunder regnedistraksjon og maks 120 sekunder fri gjenhenting.
-- Tidsgrenser fra serveren: en refresh nullstiller ikke memoreringstiden; fasen oppdateres etter serverklokken.
-- 3 × 10 nye kunstige ord med færre åpenbare semantiske assosiasjoner og faste, språklig kvalitetssikrede objektnavn på seks språk. Verifiser likevel ordlikhet i en pilot.
-- Scoring og fasit bare på serveren, SQLite-lagring av resultater, tidsbruk og antall ganger fanen ble skjult.
-- Sikker CSV-eksport med lokal kommandolinje eller et beskyttet administrasjonsendepunkt.
-- Deltaker-ID kombineres med et separat 256-bit tilgangstoken. Bare SHA-256-hashen lagres på serveren. API-et krever tokenet for å lese, starte, levere og slette deltakerdata.
-- API- og nettlesersikkerhet: ingen CORS-utvidelse, sikre responsoverskrifter, `no-store`, restriktiv CSP ved produksjonsservering og enkel begrensning av antall registreringer. Bruk i tillegg en HTTPS-reverse proxy med rate limiting ved offentlig publisering.
-- Tilbaketrekking av samtykke: deltakeren kan slette alle sine **nye** studiedata via nettsiden.
-- **Ingen av de gamle `participants`- eller `experiment_results`-tabellene blir endret eller slettet.** Tidligere V2.0-deltakere arkiveres som egen protokollversjon. De må registrere seg på nytt for å teste V2.1; tidligere resultater beholdes, men blandes ikke automatisk med V2.1-analysen.
-- `backend/results.db` og `.pyc`-filer skal ikke lagres i Git. Dersom de tidligere ble sporet, må de fjernes fra Git-indeksen; tidligere commits kan fortsatt inneholde kopier.
+| Betingelse | sRGB-farge | Beregnet relativ luminans |
+| --- | --- | ---: |
+| ORANGE | `#F0A34B` | 0,4523 |
+| BLUE | `#8AB7EA` | 0,4521 |
+| NEUTRAL | `#B3B3B3` | 0,4508 |
 
-## Slik starter du lokalt (Windows PowerShell)
+Betingelsene har nesten samme **beregnede relative sRGB-luminans**, men det er **ikke fysisk målt skjermlys**. Ulike skjermer, romlys, lysstyrke og ulik opplevd fargelyshet kan fortsatt påvirke resultatene. Testen undersøker ikke Kelvin, lux eller døgnrytme.
 
-Krever Python 3.10+ og Node.js 20.19+ eller 22.12+. I **to terminaler**:
+Hver deltaker gjennomfører alle tre betingelsene, motbalansert mellom gruppene A/B/C. I hver runde:
 
-**Terminal 1 — backend**
+1. 60 sekunders fargetilvenning med kun farge og nedtelling.
+2. 75 sekunder til å memorere 8 pseudord–objektpar.
+3. 30 sekunder med enkle regneoppgaver.
+4. Opptil 120 sekunder til å skrive inn de huskede objektene i ny, tilfeldig rekkefølge.
+
+Hver deltaker får individuell, lagret stokking. Etter alle tre runder kan deltakeren se svarene sine, fasiten og regneoppgavetotalene. Fasit deles aldri ut før hele forsøket er fullført. 12 studiespråk er støttet for ordlistene; flere av de siste seks språkene bruker fremdeles engelske grensesnitttekster og trenger språklig pilotkontroll.
+
+## Utvikling lokalt
+
+Krever Python 3.10+ og Node.js 22.12+ (eller kompatibel Node 20.19+). Kjør i **to terminaler** fra prosjektets rotmappe:
 
 ```powershell
 cd backend
@@ -38,176 +35,49 @@ pip install -r requirements.txt
 python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
 ```
 
-**Terminal 2 — frontend**
-
 ```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-Åpne `http://127.0.0.1:5173` i nettleseren. Vite sender `/api` videre til FastAPI. API-status kan sjekkes på `http://127.0.0.1:8000/api/health`.
+Åpne `http://127.0.0.1:5173`. Vite sender `/api` til FastAPI. API-helse: `http://127.0.0.1:8000/api/health`. Bruk ikke `--reload` ved offentlig publisering.
 
-**Linux/macOS:** Opprett miljø med `python3 -m venv .venv`, aktiver med `source .venv/bin/activate` og bruk `python -m uvicorn ...`.
+Produksjonsbygg:
 
-### Starte fra én port etter frontend-bygg
-
-```bash
+```powershell
 cd frontend
 npm install
 npm run build
 cd ../backend
-python -m uvicorn server:app --host 127.0.0.1 --port 8000
+python -m uvicorn server:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
-Åpne først `http://127.0.0.1:5173` i utviklingsmodus. Når `frontend/dist` finnes, serverer FastAPI den ferdige nettsiden fra `http://127.0.0.1:8000/`. For offentlig publisering må dette settes bak en HTTPS-reverse proxy / egnet host. Ikke eksponer en utviklingsserver med `--reload` på internett.
+Da leverer FastAPI også de kompilerte frontendfilene på `http://127.0.0.1:8000`. På Raspberry Pi 3 skal **ikke** Vite eller Node kjøre i produksjon; bygg frontend på en kraftigere maskin først.
 
-## Oppdater ditt eksisterende GitHub-prosjekt
-
-1. **Ta en kopi av din eksisterende `backend/results.db`** før du overskriver kode.
-2. Pakk ut denne prosjektmappen og kopier innholdet inn i ditt eksisterende Git-repositorium. Erstatt den gamle `frontend/`-koden og gamle Python-filer du ikke lenger trenger, men **ikke** overskriv eller slett `backend/results.db`.
-3. Den nye `database.init_db()` oppretter nye tabeller: `study_participants`, `study_rounds`, `study_results`. Gamle resultater ligger urørt i sine gamle tabeller.
-4. Prøv forsøket lokalt først. Kjør testene og gjennomfør alle tre rundene.
-5. Når alt virker: `git add .`, `git commit -m "Build vocabulary and screen-color study v2"`, `git push`.
-
-Av sikkerhetsgrunner ignoreres lokale databaser (`*.db`) og hemmeligheter (`.env`) av `.gitignore`. Ikke committ deltakerdata på GitHub.
-
-## Docker (alternativ)
-
-For en enklere serverinstallasjon med persistent datavolum kan prosjektet bygges med Docker. Applikasjonen blir da tilgjengelig **bare lokalt** på `127.0.0.1:8000`. Sett opp en ekstern HTTPS-reverse proxy dersom den skal nås offentlig.
-
-```bash
-docker compose up --build -d
-```
-
-Databasen lagres i Docker-volumet `study-data`; ta backup før du fjerner volumet. Docker importerer **ikke automatisk** en tidligere `backend/results.db`. For å bevare eldre data, kjør den lokale løsningen eller migrer kopien inn i volumet selv.
-
-## Teste backend
-
-```bash
-cd backend
-pip install -r requirements-dev.txt
-python -m pytest -q
-```
-
-## CSV-eksport og analyse
-
-Direkte fra backend-mappen:
-
-```bash
-python export_cli.py study_results.csv
-```
-
-Du kan også konfigurere en hemmelig eksportnøkkel som miljøvariabel:
-
-```powershell
-$env:STUDY_ADMIN_TOKEN = "velg-en-tilfeldig-lang-hemmelig-verdi"
-```
-
-Deretter sende `GET /api/admin/export.csv` med HTTP-headeren `X-Admin-Token`. **Aldri** legg nøkkelen inn i frontend-koden, GitHub eller i URL-adressen.
-
-For et raskt lokalt sammendrag kan du også kjøre `python analyze_cli.py` i backend-mappen.
-
-Exporten inneholder pseudonyme UUID-er, språk, alder, ev. kjønn, gruppe, ordliste, lysforhold, svar, poengsummer, tidsbruk og faneskjulinger. Spred ikke rådata offentlig; aggreger resultater først.
-
-## Forskning og personvern
-
-Les [docs/PROTOCOL.md](docs/PROTOCOL.md) før du rekrutterer deltakere. Dette er en pilot. Du må gjennomføre en separat pilot for å undersøke ordlistenes vanskelighetsgrad, lesehastighet, språkforskjeller, tak-/gulveffekter og skjermfargenes luminans. Planlegg statistikken før datainnsamling. Avklar samtykkekrav, personvern og eventuelle krav til foresatte eller skole før rekruttering av mindreårige.
-
-Den nye løsningen inkluderer **ikke Google Translate API**. Den støtter seks nøye avgrensede språk med faste oversettelser av 30 objektord. Å støtte alle verdens språk krever oversettelse og kvalitetssikring av både grensesnitt og svarvarianter. Dette gjør at resultatene ikke avhenger av ustabile oversettelser, Google-kostnader eller en ekstern API-nøkkel. Nye språk må kvalitetssikres separat før de brukes.
-
-### Viktige begrensninger
-
-- En nettside kan **ikke** stille inn fysisk skjermlysstyrke eller måle lux, spektrum eller faktisk korrelert fargetemperatur.
-- Skjermkalibrering er en sjekkliste, ikke måleutstyr. Ulike paneler, nattmodus, romlys og øyeavstand gir usikkerhet.
-- To fargede forhold er valgt til omtrent lik **beregnet sRGB-relativ luminans**. Dette tilsvarer ikke lik målt lysmengde på forskjellige skjermer.
-- Den mørke betingelsen har med vilje lavere luminans og blander derfor effektene av lysmengde og farge.
-- Ordparene er **ikke psykometrisk validert**. De er utgangspunkt for en pilot og bør testes for vanskelighetsgrad.
-- Fullskjerm kan avvises av nettleseren. Avbrutt/flyttet nettleserfane registreres grovt, men dette er ikke juksesikring.
-- Offentlig publisering krever ekstern hosting med HTTPS, backup, sikker konfigurasjon, rate limiting og gjennomgang av personvern. Ingen data sendes til en tredjeparts oversettelsestjeneste.
-
-
-## Sikkerhet og pilotversjon 2.1
-
-- Husk å oppdatere fra `feature/hukommelse-lm-v2` (utviklingsgrenen) når endringene er publisert på GitHub.
-- **Gammel deltakelse:** V2.0-registreringer har ikke tilgangstoken og er ikke kompatible med V2.1. På feilsiden kan du velge «Start på nytt med denne versjonen»; tidligere data forblir lagret.
-- 60 sekunder tilvenning må gjennomføres helt før ordparene blir tilgjengelige. Tiden håndheves av serverklokken og kan ikke startes på nytt ved refresh.
-- Ved offentlig publisering må serveren kjøre bak HTTPS, med backups, begrensede nettverkstilganger, ekstern rate limiting og plan for sletting av data. Ikke publiser databasen eller administrasjonstokenet. UUID og tilgangstoken er autentisering, men ikke fullverdig brukeradministrasjon.
-- Ta sikkerhetskopi før databaseoppgradering. En eksisterende V2.0-database migreres i en transaksjon: gamle deltaker-ID-er og resultater beholdes, men den nye protokollen tildeler nye ID-er og nye tilgangstokener.
-
-### Oppdatering: hukommelsestesten hopper over svarfeltene
-
-En tidligere frontend-feil gjorde at `00:00` fra distraksjonsfasen kortvarig ble
-brukt i hukommelsesfasen, og at tomme svar dermed kunne sendes automatisk.
-Nedtellingen beregnes nå fra den **nye fasens egen frist** ved første visning,
-og automatisk innsending verifiserer også at serverens reelle frist er nådd.
-Du skal få opptil 120 sekunder til å skrive svarene. Kjør
-`npm run test:timing` for regresjonstester og `python -m pytest -q`
-i backend for API-testene.
-
-Svar som tidligere ble automatisk registrert som tomme, må behandles som
-**ugyldige pilotdata** i analysen; feilen kan ikke gjenskape det deltakeren
-faktisk husket. Start en ny frivillig testøkt etter kodeoppdateringen.
-
-
-## V2.2: gjennomgang av design, språk, sikkerhet og svak maskinvare
-
-Denne versjonen har fått et eget **nøkternt forskningsdesign** i
-`frontend/src/editorial.css`, responsivt layout for telefon/nettbrett/PC,
-tilgjengelige knapper og inndatafelt, skjermutsnitt for iPhone, og valg av
-brukergrensesnittspråk i alle stadier utenom selve fargetilvenningen.
-Nettleserspråket foreslås automatisk. Under forsøket forblir **språket for
-ordpar og skåring fast** selv om du endrer språket i grensesnittet.
-
-**Viktig:** Seks komplette, kontrollerbare studiespråk støttes. Les
-[docs/I18N.md](docs/I18N.md) for hvorfor ubegrenset automatisk oversettelse
-ikke kan brukes som validerte forskningsdata. Se [docs/DESIGN.md](docs/DESIGN.md)
-for designkriterier og [docs/SECURITY.md](docs/SECURITY.md) for trusselmodell,
-Cloudflare Tunnel, opprinnelsesbeskyttelse og håndtering av studiedata.
-
-En Raspberry Pi 3 skal **bare kjøre den ferdigbygde FastAPI/SQLite-serveren**,
-ikke Node, Vite eller TypeScript-kompilatoren. Bygg frontend på din PC eller i
-GitHub Actions og distribuer `frontend/dist` sammen med backend. Docker Compose
-binder tjenesten til `127.0.0.1`, bruker én prosess, read-only-filsystem og
-begrenset minne. Fysiske Pi 3-ytelsestester gjenstår.
-
-Tester:
+## Tester
 
 ```powershell
 cd backend
 python -m pip install -r requirements-dev.txt
 python -m pytest -q
-cd ../frontend
+```
+
+```powershell
+cd frontend
 npm install
 npm run test:timing
 npm run test:locale
 npm run build
 ```
 
-`python scripts/ui_smoke.py` kjører en full Chromium-test med en midlertidig
-SQLite-database på fire skjermstørrelser, men krever at Playwright/Chromium er
-installert. GitHub Actions gjør dette automatisk. Ingen automatiserte tester
-kan erstatte en ekte mobil- og Raspberry Pi 3-test.
+GitHub Actions kjører også en tre-runders ende-til-ende-test i Chromium på flere skjermstørrelser. Testene bruker en **midlertidig database**, ikke reelle deltakerdata.
 
+## Personvern, eldre protokoller og drift
 
-### Kontrollert i CI for versjon 2.2
-
-GitHub Actions bygger TypeScript/Vite og kjører backend-tester, nedtellingstester,
-språktester og ekte Chromium-integrasjonstest på **320×640, 390×844,
-768×1024 og 1280×850**. Nettlesertesten kontrollerer hele første runde,
-inkludert at svarskjermen ikke forsvinner for tidlig, at et svar lagres, og
-at siden ikke har horisontal overflyt på teststørrelsene. Testsuiten bruker
-midlertidig SQLite-database og endrer ikke ekte deltakerdata.
-
-Både Cloudflare-konfigurasjon og skikkelig belastning på en **fysisk Raspberry
-Pi 3** må fortsatt verifiseres på den faktiske maskinen. Bygg og testing
-garanterer ikke at alle nettlesere, operativsystemer og skjermstørrelser er
-feilfrie, eller at løsningen er immune mot angrep.
-
-## Version 2.3: easier pilot, shuffled order, private results
-
-A new protocol changes the memory task to **eight distinct nonwords** with **75 seconds to learn**, a 60-second adaptation and a 30-second arithmetic distraction. For each round, the server persists a randomized learning order and a different recall order. Participants receive their **word-by-word answer review** and **math totals** only after completing all three rounds. The new score range is **0–8 per round**; previous 2.1/2.2 data remain preserved and are excluded from 2.3 analysis by default.
-
-Study nouns now have labels in 12 pilot languages: Norwegian, English, Swedish, German, French, Spanish, Italian, Portuguese, Dutch, Danish, Polish and Romanian. The last six currently use English as the interface fallback, which is clearly disclosed. A study-language selection stays fixed once a participant begins, even if the interface language is changed. Native-speaker review is required before treating scores as language-comparable.
-
-The visual system uses [frontend/src/human.css](frontend/src/human.css): neutral paper surfaces, restrained typographic hierarchy and simple answer rows rather than dark decorative cards. [docs/PROTOCOL_V23.md](docs/PROTOCOL_V23.md) describes the changed experimental procedure, methodological limits and review timing.
+* `backend/results.db` inneholder deltakerdata og skal **aldri** legges i Git eller deles. Ta sikkerhetskopi før oppdateringer. SQLite WAL-filer kan også eksistere mens serveren kjører.
+* Nye deltakere merkes `protocol_version = 2.4`. Deltakerøkter fra 2.0–2.3 er **ikke** gyldige i den nye protokollen, men tidligere resultater beholdes i databasen. Nye testdeltakere må registrere seg på nytt.
+* `python backend/analyze_cli.py` viser kun resultater for den aktive protokollen. `python backend/export_cli.py` kan eksportere alle historiske protokoller med versjonsmerking; analyser dem separat.
+* Deltakerøkt krever både tilfeldig deltaker-ID og eget hemmelig token. API-et har vert-/origin-sjekk, begrensede forespørselsstørrelser og sikkerhetsoverskrifter, men dette erstatter **ikke** sikker produksjonsdrift.
+* Bruk HTTPS via Cloudflare Tunnel med ingen direkte tilgang til origin, egnet rate limiting, sikker administratortilgang og oppdaterte avhengigheter. Se [sikkerhetsveiledningen](docs/SECURITY.md) og [språkstøtte](docs/I18N.md).
+* Korrigeringsdata og brukeropplevelse må pilottestes før en vitenskapelig konklusjon trekkes. Ikke kombiner skår fra ulike protokollversjoner.

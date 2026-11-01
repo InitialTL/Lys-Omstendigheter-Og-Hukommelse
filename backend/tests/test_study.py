@@ -41,7 +41,7 @@ def test_experiment_flow_and_server_timers(client):
     c.headers['X-Participant-Token'] = p.json()['access_token']
     base = f'/api/participants/{participant_id}'
     state = c.get(base + '/next').json()
-    assert (state['condition'],state['phase'],state['round_index']) == ('WARM','setup',0)
+    assert (state['condition'],state['phase'],state['round_index']) == ('ORANGE','setup',0)
     assert 'pairs' not in state
     assert 'words' in state and state['words'] == []
     started = c.post(base + '/rounds/start').json()
@@ -74,12 +74,12 @@ def test_experiment_flow_and_server_timers(client):
     assert c.post(base + '/rounds/0/submit', json={'answers': answers}).status_code == 409
     next_state = c.get(base + '/next').json()
     assert next_state['phase'] == 'setup'
-    assert next_state['condition'] == 'COOL'
+    assert next_state['condition'] == 'BLUE'
     assert next_state['list_id'] != state['list_id']
     assert 'review' not in next_state
     with database.connect() as db:
         row = db.execute('SELECT score,hidden_count,condition FROM study_results').fetchone()
-    assert tuple(row) == (8, 1, 'WARM')
+    assert tuple(row) == (8, 1, 'ORANGE')
 
 
 def test_complete_three_rounds_and_export(client, monkeypatch):
@@ -116,7 +116,7 @@ def test_complete_three_rounds_and_export(client, monkeypatch):
     export = c.get('/api/admin/export.csv', headers={'X-Admin-Token':'a-real-secret-used-only-for-tests'})
     assert export.status_code == 200
     assert len(export.text.strip().splitlines()) == 4
-    assert 'COOL' in export.text and 'DARK' in export.text
+    assert 'BLUE' in export.text and 'NEUTRAL' in export.text
 
 
 def test_score_is_language_specific_and_normalized():
@@ -480,3 +480,46 @@ def test_legacy_schema_migration_keeps_v22_results(tmp_path, monkeypatch):
     new = database.create_participant('ro','18_24','prefer_not')
     assert new['group'] == 'A'  # Old sessions excluded from balancing
     database.init_db()  # idempotent
+
+
+def test_v24_conditions_and_approximate_relative_srgb_luminance(client):
+    import math
+    c, _ = client
+    assert database.PROTOCOL_VERSION == '2.4'
+    assert database.CONDITIONS == ('ORANGE', 'BLUE', 'NEUTRAL')
+    colors = c.get('/api/config').json()['conditions']
+    assert set(colors) == set(database.CONDITIONS)
+    assert [colors[name]['hex'] for name in database.CONDITIONS] == ['#F0A34B','#8AB7EA','#B3B3B3']
+
+    def y(hexcode):
+        rgb = [int(hexcode[i:i+2],16)/255 for i in (1,3,5)]
+        linear = [value/12.92 if value <= .04045 else ((value+.055)/1.055)**2.4 for value in rgb]
+        return sum(a*b for a,b in zip(linear, (.2126,.7152,.0722)))
+
+    levels = [y(colors[name]['hex']) for name in database.CONDITIONS]
+    assert max(levels) - min(levels) < 0.005, levels
+    assert all(math.isfinite(value) for value in levels)
+    assert 'not physically calibrated' in c.get('/api/config').json()['measurement']
+
+
+def test_v23_data_are_preserved_and_not_accepted_as_new_sessions(client):
+    c, _ = client
+    old = c.post('/api/participants', json={
+        'language':'nb', 'age_band':'18_24', 'gender':'prefer_not', 'consent':True
+    }).json()
+    with database.connect() as db:
+        db.execute("UPDATE study_participants SET protocol_version='2.3' WHERE id=?", (old['participant_id'],))
+        db.execute("INSERT INTO study_results (participant_id,round_index,condition,list_id,answers,score,max_score,recall_seconds,completed_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                   (old['participant_id'],0,'WARM',0,'[]',5,8,75,'2026-10-31'))
+    response = c.get(f"/api/participants/{old['participant_id']}/next",
+                     headers={'X-Participant-Token': old['access_token']})
+    assert response.status_code == 401
+    with database.connect() as db:
+        old_count = db.execute("SELECT count(*) FROM study_results WHERE participant_id=? AND condition='WARM'", (old['participant_id'],)).fetchone()[0]
+    assert old_count == 1
+    new = c.post('/api/participants', json={
+        'language':'nb', 'age_band':'18_24', 'gender':'prefer_not', 'consent':True
+    }).json()
+    assert new['group'] == 'A'  # group balance only counts 2.4
+    with database.connect() as db:
+        assert db.execute("SELECT protocol_version FROM study_participants WHERE id=?", (new['participant_id'],)).fetchone()[0] == '2.4'
