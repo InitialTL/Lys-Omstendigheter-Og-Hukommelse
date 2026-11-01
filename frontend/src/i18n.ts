@@ -161,6 +161,42 @@ const MESSAGES: Record<string, [string, string, string, string]> = {
   'Well done for finishing': ['Bra jobbat med att slutföra','Gut gemacht, du hast es geschafft','Merci d’avoir terminé','Gracias por terminar'],
   'Every answer helps us understand how people learn.':
     ['Varje svar hjälper oss förstå hur människor lär sig.','Jede Antwort hilft uns, das Lernen zu verstehen.','Chaque réponse nous aide à comprendre l’apprentissage.','Cada respuesta nos ayuda a entender cómo aprendemos.'],
+  'The study is complete': ['Studien är klar','Die Studie ist abgeschlossen','L’étude est terminée','El estudio ha terminado'],
+  'How did the colors feel?': ['Hur upplevde du färgerna?','Wie hast du die Farben wahrgenommen?','Comment avez-vous ressenti les couleurs ?','¿Cómo percibiste los colores?'],
+  'Two optional questions before you see your results. There are no right or wrong answers.':
+    ['Två frivilliga frågor innan du ser dina resultat. Det finns inga rätt eller fel svar.',
+     'Zwei freiwillige Fragen, bevor du deine Ergebnisse siehst. Es gibt keine richtigen oder falschen Antworten.',
+     'Deux questions facultatives avant de voir vos résultats. Il n’y a pas de bonne ou de mauvaise réponse.',
+     'Dos preguntas opcionales antes de ver tus resultados. No hay respuestas correctas o incorrectas.'],
+  'Did remembering the words feel different between the background colors?':
+    ['Kändes det olika lätt att minnas orden med olika bakgrundsfärger?',
+     'Fühlte sich das Erinnern der Wörter bei den verschiedenen Hintergrundfarben unterschiedlich an?',
+     'Avez-vous perçu une différence pour mémoriser les mots selon la couleur de fond ?',
+     '¿Sentiste diferencias al recordar palabras con los distintos colores de fondo?'],
+  'No difference': ['Ingen skillnad','Kein Unterschied','Aucune différence','Ninguna diferencia'],
+  'Small difference': ['Liten skillnad','Kleiner Unterschied','Petite différence','Poca diferencia'],
+  'Noticeable difference': ['Tydlig skillnad','Deutlicher Unterschied','Différence notable','Diferencia perceptible'],
+  'Large difference': ['Stor skillnad','Großer Unterschied','Grande différence','Gran diferencia'],
+  'Not sure': ['Osäker','Unsicher','Je ne sais pas','No estoy seguro/a'],
+  'With which background did remembering words feel easiest?':
+    ['Med vilken bakgrund kändes det lättast att minnas orden?',
+     'Bei welcher Hintergrundfarbe fiel dir das Erinnern der Wörter am leichtesten?',
+     'Avec quelle couleur de fond était-il le plus facile de mémoriser les mots ?',
+     '¿Con qué color de fondo te resultó más fácil recordar las palabras?'],
+  'About the same': ['Ungefär lika','Ungefähr gleich','À peu près pareil','Más o menos igual'],
+  'Gray': ['Grå','Grau','Gris','Gris'],
+  'See my results': ['Visa mina resultat','Meine Ergebnisse anzeigen','Voir mes résultats','Ver mis resultados'],
+  'Skip these questions': ['Hoppa över frågorna','Fragen überspringen','Passer ces questions','Omitir estas preguntas'],
+  'These impressions are stored separately from memory scores and are used only to explore perceived differences.':
+    ['Dina upplevelser sparas separat från minnespoängen och används bara för att utforska upplevda skillnader.',
+     'Diese Eindrücke werden getrennt von den Gedächtniswerten gespeichert und nur zur Untersuchung wahrgenommener Unterschiede verwendet.',
+     'Ces impressions sont stockées séparément des scores et servent uniquement à étudier les différences ressenties.',
+     'Estas impresiones se almacenan por separado de las puntuaciones y solo se usan para estudiar diferencias percibidas.'],
+  'I participate voluntarily and agree that my age range, optional gender, language, test results and optional color-perception feedback are stored under a random participant ID for research. No names or email addresses are collected.':
+    ['Jag deltar frivilligt och samtycker till att åldersgrupp, eventuellt kön, språk, testresultat och valfria synpunkter om färger lagras under ett slumpmässigt deltagar-ID för forskning. Inga namn eller e-postadresser samlas in.',
+     'Ich nehme freiwillig teil und stimme zu, dass Altersgruppe, optionales Geschlecht, Sprache, Testergebnisse und freiwillige Angaben zur Farbwahrnehmung unter einer zufälligen Teilnehmer-ID gespeichert werden. Es werden keine Namen oder E-Mail-Adressen erhoben.',
+     'Je participe volontairement et accepte que ma tranche d’âge, mon genre facultatif, ma langue, mes résultats et mes impressions facultatives sur les couleurs soient enregistrés sous un identifiant aléatoire. Aucun nom ni courriel n’est recueilli.',
+     'Participo voluntariamente y acepto que mi grupo de edad, género opcional, idioma, resultados e impresiones opcionales sobre los colores se guarden bajo un identificador aleatorio. No se recopilan nombres ni correos electrónicos.'],
 
 };
 

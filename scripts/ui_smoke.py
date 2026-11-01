@@ -64,20 +64,22 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         condition = next(name for name in expected_colors if page.locator('.acclimation-' + name.lower()).count())
         assert condition not in conditions_seen, f'Duplicate condition: {condition}'
         conditions_seen.append(condition)
-        rendered = page.locator('.acclimation-screen').evaluate('(node) => getComputedStyle(node).backgroundColor')
+        rendered = page.locator('.experiment-surface').evaluate('(node) => getComputedStyle(node).backgroundColor')
         assert rendered == expected_colors[condition], (condition, rendered)
+        assert page.locator('.acclimation-screen').evaluate('(node) => getComputedStyle(node).backgroundColor') == 'rgba(0, 0, 0, 0)'
+        assert page.locator('.experiment-surface').evaluate('(node) => getComputedStyle(node).transitionDuration') == '1.85s' 
         advance(db_path, participant_id, round_index, 61)
         page.reload(wait_until='networkidle')
         page.locator('.pairs-grid .pair-tile').first.wait_for()
         assert page.locator('.pair-tile').count() == 8
-        # Same background in viewport, panel and words: the condition must
-        # remain visible during memorization (not just during acclimation).
+        # The stimulus is a SINGLE background surface. Cards, words and inputs
+        # are transparent, preventing an unintentional white flash.
         def check_color(selectors):
+            assert page.locator('.experiment-surface').evaluate('(node) => getComputedStyle(node).backgroundColor') == expected_colors[condition]
             colors = page.evaluate('''(selectors) => selectors.map(selector =>
                 getComputedStyle(document.querySelector(selector)).backgroundColor)''', selectors)
-            assert len(set(colors)) == 1, (condition, selectors, colors)
-            assert colors[0] == expected_colors[condition], (condition, colors)
-        check_color(['.ambient', '.study-card', '.pair-tile'])
+            assert all(x == 'rgba(0, 0, 0, 0)' for x in colors), (condition, selectors, colors)
+        check_color(['.ambient', '.study-card', '.pair-tile', '.study-header > .brand', '.brand-mark'])
         learning = page.locator('.pair-tile b').all_inner_texts()
         learned_words.append(learning)
         advance(db_path, participant_id, round_index, 136)
@@ -119,11 +121,23 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         if round_index < 2:
             page.get_by_role('button', name='Start this round').wait_for(timeout=12000)
         else:
+            page.locator('.perception-main').wait_for(timeout=12000)
+            assert page.locator('.results-review').count() == 0
+            if width == 390:
+                page.get_by_role('button',name='Skip these questions').click()
+            else:
+                page.locator('input[name="difference"][value="SMALL"]').check()
+                page.locator('input[name="easiest"][value="BLUE"]').check()
+                page.get_by_role('button', name='See my results').click()
             page.locator('.results-review').wait_for(timeout=12000)
     assert set(conditions_seen) == set(expected_colors), conditions_seen
     with sqlite3.connect(db_path) as db:
         saved = db.execute('SELECT score,math_attempts,math_correct FROM study_results WHERE participant_id=? ORDER BY round_index',
                            (participant_id,)).fetchall()
+        perception = db.execute('SELECT perceived_difference,perceived_easiest FROM study_perceptions WHERE participant_id=?',
+                                (participant_id,)).fetchone()
+        assert perception is not None
+        assert perception[0] == ('SKIPPED' if width == 390 else 'SMALL'), perception
         assert len(saved) == 3 and all(row[1] == 1 for row in saved), saved
         # The time-up path completed round 2 automatically, not by a click.
         after_timeout = db.execute('SELECT answers FROM study_results WHERE participant_id=? AND round_index=1',
@@ -136,7 +150,7 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), f'Overflow in results at {width}px'
 
     assert not errors, f'Browser exceptions at {width}: {errors}'
-    print(f'PASS {width}×{height} mobile={mobile}, full 3-round flow, shuffle, arithmetic and review')
+    print(f'PASS {width}×{height} mobile={mobile}, fade, 3-round flow, feedback and review')
     context.close()
 
 

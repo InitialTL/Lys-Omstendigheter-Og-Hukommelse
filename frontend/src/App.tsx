@@ -9,7 +9,7 @@ import { api, COLORS, storeParticipantToken, clearParticipantToken } from './api
 import { LANGUAGE_NAMES, OS_HELP, OS_NAMES, translate, detectBrowserLanguage, directionForLanguage } from './i18n';
 import { secondsRemaining, deadlinePassed } from './timing';
 import type { OSName } from './i18n';
-import type { Condition, Language, Pair, Registration, StudyState } from './api';
+import type { Condition, Language, Pair, Registration, StudyState, Perception } from './api';
 
 const PARTICIPANT_KEY = 'lm_v2_participant';
 const LANGUAGE_KEY = 'lm_v2_language';
@@ -23,7 +23,7 @@ const draftKey = (id: string, index: number) => `lm_v2_draft_${id}_${index}`;
 const hiddenKey = (id: string, index: number) => `lm_v2_hidden_${id}_${index}`;
 const mathKey = (id: string, index: number) => `lm_v23_math_${id}_${index}`;
 
-type View = 'loading' | 'intro' | 'calibration' | 'study' | 'complete';
+type View = 'loading' | 'intro' | 'calibration' | 'study' | 'perception' | 'complete';
 type ChangeLanguage = (lang: Language) => void;
 
 function LanguageSwitcher({ lang, onChange, dark = false, disabled = false }: {
@@ -42,9 +42,9 @@ function LanguageSwitcher({ lang, onChange, dark = false, disabled = false }: {
 
 
 function Brand({ light = false }: { light?: boolean }) {
-  return <div className={`brand ${light ? 'brand-light' : ''}`}>
-    <div className="brand-mark"><Brain size={20} strokeWidth={2} /></div>
-    <div className="brand-copy"><b>HUKOMMELSE<span>LM</span></b><small>LIGHT & MEMORY RESEARCH</small></div>
+  return <div className={`brand ${light ? 'brand-light' : ''}`} aria-label="Hukommelse LM">
+    <div className="brand-mark" aria-hidden="true">h<span>.</span></div>
+    <div className="brand-copy"><b>hukommelse<span>lm</span></b></div>
   </div>;
 }
 
@@ -110,8 +110,8 @@ function Intro({ lang, setLang, onRegister, busy, error }:
           <p className="locale-disclosure">{t('Språket for ordtesten er valgt. Veiledningen vises foreløpig på engelsk.',
             'Your word-test language is selected. Some instructions currently appear in English.')}</p>}
         <label className="consent-control"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/>
-          <span>{t('Jeg deltar frivillig og samtykker til at aldersgruppe, eventuelt kjønn, språk og testresultater lagres med en tilfeldig deltaker-ID for forskning. Ingen navn eller e-postadresser samles inn.',
-            'I participate voluntarily and agree that my age range, optional gender, language and test results are stored under a random participant ID for research. No names or email addresses are collected.')}</span>
+          <span>{t('Jeg deltar frivillig og samtykker til at aldersgruppe, eventuelt kjønn, språk, testresultater og valgfrie svar om hvordan fargene opplevdes lagres med en tilfeldig deltaker-ID for forskning. Ingen navn eller e-postadresser samles inn.',
+            'I participate voluntarily and agree that my age range, optional gender, language, test results and optional color-perception feedback are stored under a random participant ID for research. No names or email addresses are collected.')}</span>
         </label>
         <p className="privacy-notice"><ShieldCheck size={15}/>{t('Deltakere under 18 år: krav til samtykke må avklares med prosjektansvarlig.', 'Under 18: consent requirements must be confirmed with the study organizer.')}</p>
         {error && <div className="error-banner" role="alert">{error}</div>}
@@ -127,7 +127,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
 
 function LayersIcon() { return <div className="layers-icon"><span/><span/><span/></div>; }
 function Footer({ lang }: { lang: Language }) {
-  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.5</span></footer>;
+  return <footer className="site-footer"><span>© HUKOMMELSE LM</span><span>{translate('En studie av skjermfarger og ordhukommelse', 'A study of screen color and word memory', lang)}</span><span>RESEARCH EDITION 2.6</span></footer>;
 }
 
 function FullscreenToggle({ lang }: { lang: Language }) {
@@ -237,8 +237,8 @@ function Clock({ seconds, total, lang }: { seconds: number; total: number; lang:
   </div>;
 }
 
-function Setup({ condition, index, lang, onStart, busy }: {
-  condition: Condition; index: number; lang: Language; onStart: () => Promise<void>; busy: boolean;
+function Setup({ condition, index, lang, onStart, busy, colorReady }: {
+  condition: Condition; index: number; lang: Language; onStart: () => Promise<void>; busy: boolean; colorReady: boolean;
 }) {
   const t = (nb: string, en: string) => translate(nb, en, lang);
   const label = LABELS[condition];
@@ -253,15 +253,15 @@ function Setup({ condition, index, lang, onStart, busy }: {
       <span>{t('I 60 sekunder ser du bare en farge og en nedtelling. Ikke endre skjermens lysstyrke.',
         'You will see only the color and a timer for 60 seconds. Do not change your screen brightness.')}</span>
     </div></div>
-    <Button disabled={busy} onClick={() => void onStart()}>
-      {t('Start denne runden', 'Start this round')} <ArrowRight size={18}/>
+    <Button disabled={busy || !colorReady} onClick={() => void onStart()}>
+      {colorReady ? t('Start denne runden', 'Start this round') : t('Gjør bakgrunnen klar …', 'Preparing background…')} <ArrowRight size={18}/>
     </Button>
   </div>;
 }
 
 function Acclimation({ seconds, condition }: { seconds: number; condition: Condition }) {
   return <main className={`acclimation-screen acclimation-${condition.toLowerCase()}`}
-    aria-label="60-second screen color adaptation" style={{ backgroundColor: COLORS[condition] }}>
+    aria-label="60-second screen color adaptation">
     <div className="acclimation-timer" role="timer" aria-live="off" aria-label={`${seconds} seconds remaining`}>
       {String(Math.floor(seconds / 60)).padStart(2,'0')}:{String(seconds % 60).padStart(2,'0')}
     </div>
@@ -401,6 +401,18 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefres
   const seconds = useCountdown(state.phase_end_at, offsetSeconds);
   const index = state.round_index ?? 0;
   const phasePollInFlight = useRef(false);
+  const [readyFor, setReadyFor] = useState<Condition | null>(null);
+  // The background change finishes during SETUP, before the 60s adaptation
+  // clock begins. Rapid clicks cannot shorten the adaptation period.
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setReadyFor(condition);
+      return;
+    }
+    const timeout = window.setTimeout(() => setReadyFor(condition), 1900);
+    return () => window.clearTimeout(timeout);
+  }, [condition]);
+  const colorReady = readyFor === condition;
   useEffect(() => {
     if (phase !== 'acclimation' && phase !== 'learning' && phase !== 'distraction') return;
     if (seconds !== 0) return;
@@ -430,8 +442,10 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefres
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [state.participant_id, index, phase]);
   const label = LABELS[condition];
-  if (phase === 'acclimation') return <Acclimation condition={condition} seconds={seconds}/>;
-  return <div className="ambient" style={{'--ambient-color': COLORS[condition]} as CSSProperties}>
+  return <div className={`experiment-surface ${phase === 'acclimation' ? 'is-acclimating' : ''}`}
+    style={{ '--ambient-color': COLORS[condition], backgroundColor: COLORS[condition] } as CSSProperties}>
+    {phase === 'acclimation' ? <Acclimation condition={condition} seconds={seconds}/> :
+    <div className="ambient">
     <div className="ambient-overlay">
       <header className="study-header"><Brand light/>
         <div className="study-header-right"><LanguageSwitcher lang={lang} onChange={onLanguageChange} disabled dark/><FullscreenToggle lang={lang}/><div className="condition-chip"><ConditionIcon condition={condition} size={17}/>{translate(label.nb, label.en, lang)}</div>
@@ -439,7 +453,7 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefres
       </header>
       <div className="ambient-content">
         <div className="study-card"><div className="study-card-top"><div className="research-index">{translate('Hukommelsesstudie', 'Memory study', lang)}</div><ConditionDots current={index}/></div>
-          {phase === 'setup' ? <Setup key={index} condition={condition} index={index} lang={lang} onStart={onStart} busy={busy}/> :
+          {phase === 'setup' ? <Setup key={index} condition={condition} index={index} lang={lang} onStart={onStart} busy={busy} colorReady={colorReady}/> :
            phase === 'learning' ? <Learning pairs={state.pairs ?? []} seconds={seconds} lang={lang}/> :
            phase === 'distraction' ? <Distraction key={index} seconds={seconds} lang={lang} id={state.participant_id} index={index}/> :
            <Recall key={index} id={state.participant_id} state={state} seconds={seconds} offsetSeconds={offsetSeconds} lang={lang} onSubmit={onSubmit} busy={busy} error={error}/>}
@@ -451,7 +465,76 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefres
         </div>
       </div>
     </div>
+    </div>}
   </div>;
+}
+
+function PerceptionPage({ lang, onLanguageChange, onSubmit, busy, error }: {
+  lang: Language; onLanguageChange: ChangeLanguage;
+  onSubmit: (payload: Perception) => Promise<void>; busy: boolean; error: string | null;
+}) {
+  const t = (nb: string, en: string) => translate(nb, en, lang);
+  const [difference, setDifference] = useState<Perception['perceived_difference'] | ''>('');
+  const [easiest, setEasiest] = useState<Perception['perceived_easiest'] | ''>('');
+  const differenceOptions: {value: Perception['perceived_difference']; nb: string; en: string}[] = [
+    {value:'NONE',nb:'Ingen forskjell',en:'No difference'},
+    {value:'SMALL',nb:'Liten forskjell',en:'Small difference'},
+    {value:'MODERATE',nb:'Tydelig forskjell',en:'Noticeable difference'},
+    {value:'LARGE',nb:'Stor forskjell',en:'Large difference'},
+    {value:'UNSURE',nb:'Usikker',en:'Not sure'},
+  ];
+  const easiestOptions: {value: Perception['perceived_easiest']; nb: string; en: string}[] = [
+    {value:'ORANGE',nb:'Oransje',en:'Orange'},
+    {value:'BLUE',nb:'Blå',en:'Blue'},
+    {value:'NEUTRAL',nb:'Grå',en:'Gray'},
+    {value:'SAME',nb:'Omtrent likt',en:'About the same'},
+    {value:'UNSURE',nb:'Usikker',en:'Not sure'},
+  ];
+  return <div className="site-shell perception-page"><Header lang={lang} onLanguageChange={onLanguageChange}/>
+    <main className="perception-main">
+      <p className="perception-step">{t('Ferdig med forsøket', 'The study is complete')}</p>
+      <h1>{t('Hvordan opplevde du fargene?', 'How did the colors feel?')}</h1>
+      <p className="perception-intro">{t(
+        'To korte, valgfrie spørsmål før du får se resultatene. Det finnes ingen riktige eller gale svar.',
+        'Two optional questions before you see your results. There are no right or wrong answers.')}</p>
+      <form onSubmit={event => {
+        event.preventDefault();
+        if (difference && easiest) void onSubmit({perceived_difference:difference, perceived_easiest:easiest});
+      }}>
+        <fieldset className="perception-question">
+          <legend>{t('Opplevde du noen forskjell i hvor enkelt det var å huske ordene med de ulike bakgrunnsfargene?',
+            'Did remembering the words feel different between the background colors?')}</legend>
+          <div className="perception-options">{differenceOptions.map(option =>
+            <label className={`perception-choice ${difference===option.value?'selected':''}`} key={option.value}>
+              <input type="radio" name="difference" value={option.value} checked={difference===option.value}
+                onChange={()=>setDifference(option.value)}/>
+              <span>{t(option.nb, option.en)}</span>
+            </label>)}</div>
+        </fieldset>
+        <fieldset className="perception-question">
+          <legend>{t('Hvilken bakgrunn opplevde du at det var enklest å huske ord med?',
+            'With which background did remembering words feel easiest?')}</legend>
+          <div className="perception-options">{easiestOptions.map(option =>
+            <label className={`perception-choice ${easiest===option.value?'selected':''}`} key={option.value}>
+              <input type="radio" name="easiest" value={option.value} checked={easiest===option.value}
+                onChange={()=>setEasiest(option.value)}/>
+              <span>{t(option.nb, option.en)}</span>
+            </label>)}</div>
+        </fieldset>
+        {error && <div className="error-banner" role="alert">{error}</div>}
+        <div className="perception-actions">
+          <Button type="submit" disabled={!difference || !easiest || busy}>
+            {busy ? t('Lagrer …', 'Saving…') : t('Se resultatene mine', 'See my results')} <ArrowRight size={18}/>
+          </Button>
+          <button type="button" className="perception-skip" disabled={busy}
+            onClick={() => void onSubmit({perceived_difference:'SKIPPED',perceived_easiest:'SKIPPED'})}>
+            {t('Hopp over disse spørsmålene', 'Skip these questions')}
+          </button>
+        </div>
+      </form>
+      <p className="perception-note">{t('Disse vurderingene lagres separat fra hukommelsespoengsummen og brukes bare til å undersøke opplevde forskjeller.',
+        'These impressions are stored separately from memory scores and are used only to explore perceived differences.')}</p>
+    </main><Footer lang={lang}/></div>;
 }
 
 function Complete({ lang, onLanguageChange, onWithdraw, error, state }: {
@@ -521,7 +604,7 @@ export default function App() {
     setOffset(data.server_now - Date.now() / 1000);
     setState(data);
     // UI language is independent from the fixed, graded language of a running study.
-    if (data.finished) setView('complete');
+    if (data.finished) setView(data.perception_done ? 'complete' : 'perception');
     else if (localStorage.getItem(CALIBRATED_KEY) !== participantID) setView('calibration');
     else setView('study');
   }, []);
@@ -594,6 +677,22 @@ export default function App() {
     finally { setBusy(false); }
   }, [id, state, busy, getState]);
 
+  const submitPerception = async (payload: Perception) => {
+    if (!id || busy) return;
+    setBusy(true); setError(null);
+    try {
+      try {
+        await api.perception(id, payload);
+      } catch (err) {
+        // A network interruption may occur after the server saved the response.
+        const latest = await api.next(id).catch(() => null);
+        if (!latest?.perception_done) throw err;
+      }
+      await getState(id);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Unable to save'); }
+    finally { setBusy(false); }
+  };
+
   const withdraw = async () => {
     if (!id) return;
     const okay = window.confirm(translate(
@@ -629,6 +728,7 @@ export default function App() {
   if (view === 'calibration') return <Calibration lang={lang} onLanguageChange={setLang} onNext={() => {
     if(id) {localStorage.setItem(CALIBRATED_KEY,id); setView('study'); }
   }}/>
+  if (view === 'perception') return <PerceptionPage lang={lang} onLanguageChange={setLang} onSubmit={submitPerception} busy={busy} error={error}/>;
   if (view === 'complete') return <Complete lang={lang} onLanguageChange={setLang} onWithdraw={withdraw} error={error} state={state}/>;
   if (!state || !id) return null;
   return <Study state={state} lang={lang} onLanguageChange={setLang} offsetSeconds={offset} onStart={start} onRefresh={refresh} onSubmit={submit} onWithdraw={withdraw} busy={busy} error={error}/>;

@@ -485,7 +485,7 @@ def test_legacy_schema_migration_keeps_v22_results(tmp_path, monkeypatch):
 def test_v24_conditions_and_approximate_relative_srgb_luminance(client):
     import math
     c, _ = client
-    assert database.PROTOCOL_VERSION == '2.5'
+    assert database.PROTOCOL_VERSION == '2.6'
     assert database.CONDITIONS == ('ORANGE', 'BLUE', 'NEUTRAL')
     colors = c.get('/api/config').json()['conditions']
     assert set(colors) == set(database.CONDITIONS)
@@ -522,7 +522,7 @@ def test_v23_data_are_preserved_and_not_accepted_as_new_sessions(client):
     }).json()
     assert new['group'] == 'A'  # group balance only counts 2.5
     with database.connect() as db:
-        assert db.execute("SELECT protocol_version FROM study_participants WHERE id=?", (new['participant_id'],)).fetchone()[0] == '2.5'
+        assert db.execute("SELECT protocol_version FROM study_participants WHERE id=?", (new['participant_id'],)).fetchone()[0] == '2.6'
 
 
 def test_v24_same_color_codes_not_mixed_into_new_protocol(client):
@@ -543,3 +543,79 @@ def test_v24_same_color_codes_not_mixed_into_new_protocol(client):
     with database.connect() as db:
         assert db.execute("SELECT score FROM study_results WHERE participant_id=?", (previous['participant_id'],)).fetchone()[0] == 6
         assert db.execute("SELECT protocol_version FROM study_participants WHERE id=?", (new['participant_id'],)).fetchone()[0] == database.PROTOCOL_VERSION
+
+
+def test_perception_is_optional_post_study_private_and_single_submission(client, monkeypatch):
+    c, clock = client
+    response = c.post('/api/participants', json={
+        'language':'nb', 'age_band':'18_24', 'gender':'prefer_not', 'consent':True
+    })
+    pid = response.json()['participant_id']
+    token = response.json()['access_token']
+    path = f'/api/participants/{pid}/perception'
+    payload = {'perceived_difference': 'SMALL', 'perceived_easiest': 'BLUE'}
+    assert c.post(path, json=payload).status_code == 401
+    c.headers['X-Participant-Token'] = token
+    assert c.get(f'/api/participants/{pid}/next').json()['finished'] is False
+    assert c.post(path, json=payload).status_code == 409
+    assert c.post(path, json={**payload, 'extra':'unexpected'}).status_code == 422
+    assert c.post(path, json={**payload, 'perceived_easiest':'BAD'}).status_code == 422
+    assert c.post(path, json={'perceived_difference':'SKIPPED', 'perceived_easiest':'BLUE'}).status_code == 422
+    for idx in range(3):
+        c.post(f'/api/participants/{pid}/rounds/start')
+        clock['now'] += 170
+        result = c.post(f'/api/participants/{pid}/rounds/{idx}/submit',json={'answers':['']*8})
+        assert result.status_code == 200, result.text
+    before = c.get(f'/api/participants/{pid}/next').json()
+    assert before['finished'] and before['perception_done'] is False
+    assert len(before['review']) == 3
+    submitted = c.post(path,json=payload)
+    assert submitted.status_code == 201, submitted.text
+    again = c.post(path,json=payload)
+    assert again.status_code == 409
+    after = c.get(f'/api/participants/{pid}/next').json()
+    assert after['perception_done'] is True
+    with database.connect() as db:
+        saved = db.execute('SELECT perceived_difference,perceived_easiest FROM study_perceptions WHERE participant_id=?', (pid,)).fetchone()
+        assert tuple(saved) == ('SMALL','BLUE')
+    assert c.get('/api/admin/perceptions.csv').status_code == 503
+    monkeypatch.setenv('STUDY_ADMIN_TOKEN','long-secret-for-test-only')
+    assert c.get('/api/admin/perceptions.csv').status_code == 403
+    exported = c.get('/api/admin/perceptions.csv',headers={'X-Admin-Token':'long-secret-for-test-only'})
+    assert exported.status_code == 200 and 'SMALL' in exported.text and 'BLUE' in exported.text
+    assert c.delete(f'/api/participants/{pid}').status_code == 204
+    with database.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM study_perceptions WHERE participant_id=?',(pid,)).fetchone()[0] == 0
+
+
+def test_skipping_perception_allows_review_and_creates_no_score(client):
+    c, clock = client
+    registered = c.post('/api/participants',json={
+        'language':'en','age_band':'25_44','gender':'prefer_not','consent':True
+    }).json()
+    pid = registered['participant_id']
+    c.headers['X-Participant-Token'] = registered['access_token']
+    for idx in range(3):
+        c.post(f'/api/participants/{pid}/rounds/start')
+        clock['now'] += 170
+        assert c.post(f'/api/participants/{pid}/rounds/{idx}/submit',json={'answers':['']*8}).status_code == 200
+    assert c.post(f'/api/participants/{pid}/perception',json={
+        'perceived_difference':'SKIPPED', 'perceived_easiest':'SKIPPED'
+    }).status_code == 201
+    next_state=c.get(f'/api/participants/{pid}/next').json()
+    assert next_state['finished'] and next_state['perception_done']
+    assert len(next_state['review']) == 3
+    with database.connect() as db:
+        row = db.execute('SELECT perceived_difference,perceived_easiest FROM study_perceptions WHERE participant_id=?',(pid,)).fetchone()
+        assert tuple(row) == ('SKIPPED','SKIPPED')
+        assert db.execute('SELECT COUNT(*) FROM study_results WHERE participant_id=?',(pid,)).fetchone()[0] == 3
+
+
+def test_v25_is_retained_but_cannot_reenter_v26(client):
+    c, _ = client
+    p=c.post('/api/participants',json={'language':'en','age_band':'18_24','gender':'prefer_not','consent':True}).json()
+    with database.connect() as db:
+        db.execute("UPDATE study_participants SET protocol_version='2.5' WHERE id=?",(p['participant_id'],))
+    assert c.get(f"/api/participants/{p['participant_id']}/next",headers={'X-Participant-Token':p['access_token']}).status_code == 401
+    with database.connect() as db:
+        assert db.execute('SELECT protocol_version FROM study_participants WHERE id=?',(p['participant_id'],)).fetchone()[0]=='2.5'

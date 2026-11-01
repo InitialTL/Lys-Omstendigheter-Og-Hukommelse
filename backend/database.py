@@ -12,7 +12,7 @@ from pathlib import Path
 from itertools import permutations
 
 DB_PATH = Path(os.environ.get("STUDY_DATABASE", str(Path(__file__).with_name("results.db"))))
-PROTOCOL_VERSION = "2.5"
+PROTOCOL_VERSION = "2.6"
 WORDS_PER_ROUND = 8
 LANGUAGES = ("nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro")
 CONDITIONS = ("ORANGE", "BLUE", "NEUTRAL")
@@ -55,7 +55,7 @@ def init_db() -> None:
                 list_order TEXT NOT NULL,
                 consented_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                protocol_version TEXT NOT NULL DEFAULT '2.5',
+                protocol_version TEXT NOT NULL DEFAULT '2.6',
                 token_hash TEXT
             );
             CREATE TABLE IF NOT EXISTS study_rounds (
@@ -86,9 +86,18 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_study_results_condition
               ON study_results(condition);
+            CREATE TABLE IF NOT EXISTS study_perceptions (
+                participant_id TEXT PRIMARY KEY,
+                perceived_difference TEXT NOT NULL CHECK(perceived_difference IN
+                  ('NONE','SMALL','MODERATE','LARGE','UNSURE','SKIPPED')),
+                perceived_easiest TEXT NOT NULL CHECK(perceived_easiest IN
+                  ('ORANGE','BLUE','NEUTRAL','SAME','UNSURE','SKIPPED')),
+                completed_at TEXT NOT NULL,
+                FOREIGN KEY(participant_id) REFERENCES study_participants(id)
+            );
         """)
     # Migrate old pilot schemas without modifying or deleting old results.
-    # Only V2.5 participants are accepted by public study endpoints.
+    # Only V2.6 participants are accepted by public study endpoints.
     with connect() as db:
         existing = {r[1] for r in db.execute('PRAGMA table_info(study_participants)')}
         schema = db.execute("SELECT sql FROM sqlite_master WHERE name='study_participants'").fetchone()[0]
@@ -105,7 +114,7 @@ def init_db() -> None:
                 list_order TEXT NOT NULL,
                 consented_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                protocol_version TEXT NOT NULL DEFAULT '2.5',
+                protocol_version TEXT NOT NULL DEFAULT '2.6',
                 token_hash TEXT
             )''')
             protocol_expr = 'protocol_version' if 'protocol_version' in existing else "'2.0'"
@@ -183,6 +192,9 @@ def get_next(participant_id: str) -> dict | None:
             "server_now": time.time(),
         }
         if idx is None:
+            common["perception_done"] = db.execute(
+                "SELECT 1 FROM study_perceptions WHERE participant_id=?", (participant_id,)
+            ).fetchone() is not None
             return common
         condition = SEQUENCES["ABC".index(participant["group_name"])][idx]
         list_id = json.loads(participant["list_order"])[idx]
@@ -298,6 +310,38 @@ def completed_rounds(participant_id: str) -> list[dict] | None:
         return [dict(x) for x in data]
 
 
+def save_perception(participant_id: str, difference: str, easiest: str) -> bool:
+    """Post-study belief, independent of objective accuracy and collected once."""
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        participant = db.execute(
+            "SELECT protocol_version FROM study_participants WHERE id=?", (participant_id,)
+        ).fetchone()
+        if not participant or participant["protocol_version"] != PROTOCOL_VERSION:
+            raise ValueError("participant")
+        completed = db.execute(
+            "SELECT COUNT(*) FROM study_results WHERE participant_id=?", (participant_id,)
+        ).fetchone()[0]
+        if completed != 3:
+            raise ValueError("study_not_complete")
+        if db.execute(
+            "SELECT 1 FROM study_perceptions WHERE participant_id=?", (participant_id,)
+        ).fetchone():
+            raise ValueError("already_submitted")
+        db.execute("INSERT INTO study_perceptions "
+          "(participant_id,perceived_difference,perceived_easiest,completed_at) "
+          "VALUES (?,?,?,?)", (participant_id, difference, easiest, now_iso()))
+    return True
+
+
+def export_perceptions() -> list[dict]:
+    with connect() as db:
+        return [dict(row) for row in db.execute("SELECT v.participant_id,p.protocol_version,p.language,p.group_name, "
+          "v.perceived_difference,v.perceived_easiest,v.completed_at "
+          "FROM study_perceptions v JOIN study_participants p ON p.id=v.participant_id "
+          "ORDER BY v.completed_at").fetchall()]
+
+
 def delete_participant(participant_id: str) -> bool:
     """Withdraw consent and delete all new-study data linked to this participant ID."""
     with connect() as db:
@@ -305,6 +349,7 @@ def delete_participant(participant_id: str) -> bool:
         row = db.execute("SELECT id FROM study_participants WHERE id=?", (participant_id,)).fetchone()
         if not row:
             return False
+        db.execute("DELETE FROM study_perceptions WHERE participant_id=?", (participant_id,))
         db.execute("DELETE FROM study_results WHERE participant_id=?", (participant_id,))
         db.execute("DELETE FROM study_rounds WHERE participant_id=?", (participant_id,))
         db.execute("DELETE FROM study_participants WHERE id=?", (participant_id,))

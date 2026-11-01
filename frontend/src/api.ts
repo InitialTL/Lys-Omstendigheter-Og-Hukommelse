@@ -25,6 +25,12 @@ export type StudyState = {
   words?: string[];
   pairs?: Pair[];
   review?: RoundReview[];
+  perception_done?: boolean;
+};
+
+export type Perception = {
+  perceived_difference: 'NONE' | 'SMALL' | 'MODERATE' | 'LARGE' | 'UNSURE' | 'SKIPPED';
+  perceived_easiest: Condition | 'SAME' | 'UNSURE' | 'SKIPPED';
 };
 
 export type Registration = {
@@ -74,6 +80,10 @@ export const api = {
     const response = await fetch(`/api/participants/${encodeURIComponent(id)}`, { method: 'DELETE', cache: 'no-store', referrerPolicy: 'no-referrer', headers: authenticatedHeaders() });
     if (!response.ok) throw new Error(`Unable to withdraw (${response.status})`);
   },
+  perception: (id: string, payload: Perception) => request<{ saved: boolean }>(
+    `/api/participants/${encodeURIComponent(id)}/perception`,
+    { method: 'POST', body: JSON.stringify(payload), headers: authenticatedHeaders() }
+  ),
   submit: (id: string, round: number, answers: string[], hidden_count: number, math_attempts: number, math_correct: number) =>
     request<{ saved: boolean }>(
       `/api/participants/${encodeURIComponent(id)}/rounds/${round}/submit`,

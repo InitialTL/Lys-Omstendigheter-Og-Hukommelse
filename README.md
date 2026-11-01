@@ -1,10 +1,10 @@
-# Hukommelse LM — pilotversjon 2.5
+# Hukommelse LM — pilotversjon 2.6
 
 En responsiv React/TypeScript-frontend med FastAPI og SQLite for et anonymt, fjernbasert pilotforsøk. **Gjeldende forskningsspørsmål:** Påvirker **oransje, blå eller nøytral grå skjermbakgrunn** hvor godt deltakerne husker nylig lærte assosiasjoner mellom pseudord og objekter?
 
 [Les den gjeldende forsøksprotokollen](docs/PROTOCOL_V24.md). Tidligere [protokoll 2.3](docs/PROTOCOL_V23.md) og [eldre prosjektnotater](docs/PROTOCOL.md) er arkivert og skal ikke brukes som beskrivelse av den nye datainnsamlingen.
 
-## Fargebetingelser i 2.5
+## Fargebetingelser i 2.6
 
 | Betingelse | sRGB-farge | Beregnet relativ luminans |
 | --- | --- | ---: |
@@ -21,7 +21,9 @@ Hver deltaker gjennomfører alle tre betingelsene, motbalansert mellom gruppene 
 3. 30 sekunder med enkle regneoppgaver.
 4. Opptil 120 sekunder til å skrive inn de huskede objektene i ny, tilfeldig rekkefølge.
 
-Hver deltaker får individuell, lagret stokking. Etter alle tre runder kan deltakeren se svarene sine, fasiten og regneoppgavetotalene. Fasit deles aldri ut før hele forsøket er fullført. 12 studiespråk er støttet for ordlistene; flere av de siste seks språkene bruker fremdeles engelske grensesnitttekster og trenger språklig pilotkontroll.
+Hver deltaker får individuell, lagret stokking. Etter alle tre runder kan deltakeren frivillig svare på to nøytrale spørsmål om opplevd effekt før vedkommende ser svarene sine, fasiten og regneoppgavetotalene. Fasit deles aldri ut før hele forsøket er fullført. 12 studiespråk er støttet for ordlistene; flere av de siste seks språkene bruker fremdeles engelske grensesnitttekster og trenger språklig pilotkontroll.
+
+**Nytt i 2.6:** Et rolig, plattformnært grensesnitt uten motstridende bakgrunnspaneler, 1,85 sekunds gradvis fargeskifte i oppsettfasen, og et frivillig retrospektivt spørreskjema. Se [forsøksprotokoll 2.6](docs/PROTOCOL_V26.md). Resultater fra 2.5 og 2.6 må ikke blandes. De subjektive svarene er ikke en måling av placeboeffekt.
 
 ## Utvikling lokalt
 
@@ -76,13 +78,13 @@ GitHub Actions kjører også en tre-runders ende-til-ende-test i Chromium på fl
 ## Personvern, eldre protokoller og drift
 
 * `backend/results.db` inneholder deltakerdata og skal **aldri** legges i Git eller deles. Ta sikkerhetskopi før oppdateringer. SQLite WAL-filer kan også eksistere mens serveren kjører.
-* Nye deltakere merkes `protocol_version = 2.5`. Deltakerøkter fra 2.0–2.4 er **ikke** gyldige i den nye protokollen, men tidligere resultater beholdes i databasen. Nye testdeltakere må registrere seg på nytt.
-* `python backend/analyze_cli.py` viser kun resultater for den aktive protokollen. `python backend/export_cli.py` kan eksportere alle historiske protokoller med versjonsmerking; analyser dem separat.
+* Nye deltakere merkes `protocol_version = 2.6`. Deltakerøkter fra 2.0–2.5 er **ikke** gyldige i den nye protokollen, men tidligere resultater beholdes i databasen. Nye testdeltakere må registrere seg på nytt.
+* `python backend/analyze_cli.py` viser kun resultater for den aktive protokollen. `python backend/export_perceptions_cli.py` eksporterer frivillige svar separat. `python backend/export_cli.py` kan eksportere alle historiske protokoller med versjonsmerking; analyser dem separat.
 * Deltakerøkt krever både tilfeldig deltaker-ID og eget hemmelig token. API-et har vert-/origin-sjekk, begrensede forespørselsstørrelser og sikkerhetsoverskrifter, men dette erstatter **ikke** sikker produksjonsdrift.
 * Bruk HTTPS via Cloudflare Tunnel med ingen direkte tilgang til origin, egnet rate limiting, sikker administratortilgang og oppdaterte avhengigheter. Se [sikkerhetsveiledningen](docs/SECURITY.md) og [språkstøtte](docs/I18N.md).
 * Korrigeringsdata og brukeropplevelse må pilottestes før en vitenskapelig konklusjon trekkes. Ikke kombiner skår fra ulike protokollversjoner.
 
-## Endring i 2.5: stimulus og svarfrist
+## Endring i 2.5: stimulus og svarfrist (historisk)
 
 Læringsskjermen, regneoppgavene og svarfeltene bruker nå **nøyaktig samme CSS-bakgrunnsfarge** som omkringliggende viewport. Kortet har bare en mørk, transparent kantlinje. Dette gir mer konsekvent eksponering for fargebetingelsen, men er en vesentlig endring i forsøksstimulus: resultater fra 2.4 må ikke slås sammen med 2.5.
 

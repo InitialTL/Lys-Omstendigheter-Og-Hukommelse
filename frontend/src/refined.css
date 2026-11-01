@@ -1,0 +1,210 @@
+/* Hukommelse LM 2.6. Platform-native, quiet and deliberate.
+   Apple-inspired clarity without Apple branding, icons, trackers or remote fonts.
+   The experimental stimulus is ONE underlying color plane. */
+:root {
+  --paper: #f5f5f7;
+  --surface: #ffffff;
+  --ink: #1d1d1f;
+  --muted: #636366;
+  --accent: #1d1d1f;
+  --accent-text: #1d1d1f;
+  --line: #dedee3;
+  --focus: #006ad4;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  color: var(--ink);
+  font-synthesis: none;
+}
+.site-shell, .topbar, .site-footer { background: var(--paper); }
+.site-shell { min-height: 100dvh; }
+.topbar { border-bottom: 1px solid rgba(29,29,31,.09); min-height: 72px; }
+.brand { gap: 10px; }
+.brand-mark, .study-header .brand-mark {
+  font: 720 25px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: none; border: 0; box-shadow: none; color: currentColor;
+  width: 30px; height: 30px; border-radius: 0; letter-spacing: -.09em;
+}
+.brand-mark span, .brand-copy b span, .study-header .brand-copy b span { color: inherit; }
+.brand-copy b, .study-header .brand-copy b {
+  color: currentColor; font: 650 16px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-transform: none; letter-spacing: -.045em;
+}
+.brand-copy b span { margin-inline-start: 3px; font-weight: 430; opacity: .58; }
+.brand-copy small { display: none; }
+.topbar-right .research-label { font-weight: 500; color: #77777c; }
+.topbar-right .status-dot { background: #77777c; box-shadow: none; }
+.language-switch select { border-radius: 12px; }
+.intro-layout { max-width: 1200px; gap: clamp(24px, 5vw, 90px); }
+.intro-main h1, .page-title, .study-center h1, .phase-main h1,
+.results-head h1, .results-review h2, .perception-main h1 {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 680; letter-spacing: -.05em;
+}
+.intro-main h1 { font-size: clamp(43px, 5.2vw, 78px); line-height: 1.075; }
+.intro-main h1 em { color: #555559; }
+.hero-sub { color: #55555b; font-size: clamp(16px,1.7vw,19px); line-height: 1.6; }
+.eyebrow,.section-kicker { color: #717178; font-size: 12px; letter-spacing: .035em; font-weight: 620; }
+.enroll-card { border: 1px solid #e9e9ed; background: #fff; box-shadow: none; border-radius: 22px; }
+.enroll-icon { background: #f5f5f7; border-radius: 14px; color:#2b2b30; }
+.enroll-head h2 { font-weight: 670; letter-spacing: -.045em; }
+.field select,.os-guide select,.language-switch select { border-radius: 12px; border-color: #d2d2d7; }
+.consent-control input { accent-color: #222226; }
+.btn,.btn-primary,.btn-secondary {
+  border-radius: 100px; min-height: 48px; font-weight: 600;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.btn-primary { background: #1d1d1f; color: #fff; }
+.btn-primary:hover:not(:disabled) { background:#3a3a3d; }
+.btn-secondary { background: transparent; border:1px solid #c6c6cc; color:#1d1d1f; }
+.check-tile { border-radius: 12px; }
+.check-tile.checked { background: #f6f7f9; border-color: #8f9299; }
+.checked .check-square { background: #1d1d1f; border-color: #1d1d1f; }
+.calibration-checklist,.calibration-visual { border:1px solid #ededf0; border-radius:18px; box-shadow:none; }
+.calibration-action .btn { padding-inline: 25px; }
+.site-footer { background: #f5f5f7; border-color: #e5e5e9; }
+.results-head h1 { color:#1d1d1f; }
+.results-review h2 { font-weight: 640; }
+.results-overview strong { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-weight:630; color:#1d1d1f; }
+.results-overview { border-color: #e3e3e7; }
+.review-round { border-color:#e4e4e8; }
+.review-score { color:#38383e; font-family:inherit; }
+.review-title { color:#2c2c30; }
+.review-context,.results-head>p { color:#646469; }
+.review-status { background:#e7f5ed; color:#257047; }
+.review-item.incorrect .review-status { background:#f6e7e4; color:#a44d40; }
+
+/* The wrapper survives the setup/acclimation/learning/distraction/recall
+   transition, so switching children never exposes a different colored page.
+   Color fades during setup, before the server starts the 60s adaptation. */
+.experiment-surface {
+  min-height: 100dvh;
+  color: #1d292e;
+  background-color: var(--ambient-color);
+  transition: background-color 1850ms cubic-bezier(.2, .65, .2, 1);
+  position: relative;
+  isolation: isolate;
+}
+.experiment-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #f5f5f7;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  animation: stimulus-curtain 1850ms cubic-bezier(.2, .65, .2, 1) both;
+}
+@keyframes stimulus-curtain {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.experiment-surface .ambient,
+.experiment-surface .ambient-overlay,
+.experiment-surface .acclimation-screen,
+.experiment-surface .study-card,
+.experiment-surface .study-header > .brand,
+.experiment-surface .study-header-right,
+.experiment-surface .study-header .language-switch select,
+.experiment-surface .study-header .fullscreen-control > .btn,
+.experiment-surface .pair-tile,
+.experiment-surface .answer-field,
+.experiment-surface .answer-field input,
+.experiment-surface .math-card,
+.experiment-surface .math-form input,
+.experiment-surface .study-center .pill,
+.experiment-surface .instruction-card,
+.experiment-surface .light-orb,
+.experiment-surface .instruction-icon {
+  background: transparent;
+}
+.experiment-surface .ambient { --study-ink:#18262d; --study-muted:#34424b; --study-rule:rgba(24,38,45,.25); --study-rule-soft:rgba(24,38,45,.18); --study-deep:#20343e; min-height:100dvh; }
+.experiment-surface .study-header { padding: 14px clamp(14px, 3vw, 45px); }
+.experiment-surface .study-header > .brand,
+.experiment-surface .study-header-right { border: 0; padding: 6px; box-shadow: none; }
+.experiment-surface .study-header .brand-copy b,
+.experiment-surface .study-header .brand-copy b span,
+.experiment-surface .study-header .brand-mark { color:#1d292e; }
+.experiment-surface .study-header-right { gap: 8px; }
+.experiment-surface .study-header .language-switch select,
+.experiment-surface .study-header .fullscreen-control > .btn { border: 1px solid rgba(24,38,45,.20); border-radius: 100px; }
+.experiment-surface .condition-chip,
+.experiment-surface .round-chip { color: #30414a; }
+.experiment-surface .study-card {
+  max-width: 880px; border:1px solid rgba(24,38,45,.21);
+  box-shadow: none; border-radius: 26px; padding: clamp(22px, 4vw, 43px);
+}
+.experiment-surface .study-card-top { border-color: rgba(24,38,45,.16); }
+.experiment-surface .phase-main h1,
+.experiment-surface .study-center h1 { font-size:clamp(29px, 4vw, 45px); color:#192b31; }
+.experiment-surface .phase-tag { font-size:12px; font-weight:620; letter-spacing:.03em; }
+.experiment-surface .study-center .pill { border: 0; color:#23373c; padding-inline:0; }
+.experiment-surface .light-orb { border: 0; box-shadow:none; width:68px;height:68px; }
+.experiment-surface .instruction-card { border-inline-start:2px solid rgba(24,38,45,.35); padding:16px 18px; }
+.experiment-surface .instruction-icon { border:0; }
+.experiment-surface .pair-tile,
+.experiment-surface .answer-field { border-color:rgba(24,38,45,.19); }
+.experiment-surface .pair-tile b,
+.experiment-surface .answer-field b { font-weight:650; }
+.experiment-surface .answer-field input,
+.experiment-surface .math-form input { border:1px solid rgba(24,38,45,.33); border-radius: 12px; }
+.experiment-surface .answer-field input:focus-visible,
+.experiment-surface .math-form input:focus-visible { outline:3px solid #174f87; outline-offset:2px; }
+.experiment-surface .btn-primary { background:#1d2f35; color:#fff; }
+.experiment-surface .btn-primary:hover:not(:disabled) { background:#34474e; }
+.experiment-surface .btn-secondary { color:#23363e; border-color:rgba(24,38,45,.33); }
+.experiment-surface .math-expression { font:650 clamp(42px,7vw,71px)/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; letter-spacing:-.04em; }
+.experiment-surface .clock-heading b { color:#1e343b; }
+.experiment-surface .progress-track { border-radius:100px; background:rgba(24,38,45,.18); }
+.experiment-surface .progress-fill { border-radius:100px; background:#1d343e; }
+.experiment-surface .acclimation-screen { background:transparent; min-height:100dvh; }
+.experiment-surface .acclimation-timer {
+  font:600 clamp(72px,12vw,160px)/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:#17262d; letter-spacing:-.07em;
+}
+/* Avoid hiding affordances with uniform backgrounds. Only borders and text vary. */
+.experiment-surface .study-under { color:#253b42; }
+.experiment-surface .study-under .withdraw-link { color:#22383e; }
+
+/* Retrospective perception is asked once, after all three rounds, before scores. */
+.perception-page { background:#f5f5f7; }
+.perception-main {
+  width:min(760px,calc(100% - 32px)); margin:0 auto;
+  padding:clamp(38px,7vw,94px) 0 92px;
+}
+.perception-step { font-size:13px; font-weight:640; color:#66666b; }
+.perception-main h1 {
+  font-size:clamp(35px,5.6vw,61px); line-height:1.1;
+  margin:16px 0 18px; color:#1d1d1f;
+}
+.perception-intro { max-width:62ch; font-size:17px; line-height:1.6; color:#626269; margin-bottom:44px; }
+.perception-question { border:0; border-top:1px solid #dedee3; padding:26px 0; margin:0; min-width:0; }
+.perception-question legend { float:left; width:100%; font-size:19px; font-weight:600; line-height:1.45; color:#2c2c30; margin-bottom:18px; }
+.perception-options { clear:both; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.perception-choice {
+  display:flex; align-items:center; gap:10px; min-height:54px;
+  padding:13px 17px; border:1px solid #dedee3; border-radius:14px;
+  background:#fff; color:#34343b; font-size:15px; cursor:pointer;
+}
+.perception-choice.selected { border-color:#3a3a40; background:#fff; box-shadow:inset 0 0 0 1px #3a3a40; }
+.perception-choice input { accent-color:#1d1d1f; width:18px;height:18px; flex:none; }
+.perception-choice:focus-within { outline:2px solid #2478cc; outline-offset:2px; }
+.perception-actions { display:flex; align-items:center; flex-wrap:wrap; gap:16px; margin-top:20px; }
+.perception-actions .btn { padding-inline:28px; }
+.perception-skip { background:none; border:0; cursor:pointer; padding:13px 6px; color:#55555b; font-weight:550; }
+.perception-skip:hover { text-decoration:underline; text-underline-offset:4px; }
+.perception-skip:focus-visible { outline:3px solid #2478cc; outline-offset:2px; border-radius:6px; }
+.perception-note { max-width:60ch; font-size:13px; line-height:1.65; color:#707078; margin-top:26px; }
+@media (max-width:680px) {
+  .experiment-surface .study-card { padding:20px 15px; border-radius:19px; }
+  .experiment-surface .study-header { padding:12px 11px; }
+  .experiment-surface .study-header-right { gap:5px; }
+  .experiment-surface .study-header .fullscreen-control > .btn { padding:7px 9px; }
+  .experiment-surface .study-card-top { margin-bottom:2px; }
+  .perception-options { grid-template-columns:1fr; }
+  .perception-question legend { font-size:17px; }
+  .perception-main { padding-top:46px; }
+  .perception-intro { font-size:16px; }
+  .topbar .research-label { display:none; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .experiment-surface, .experiment-surface::before { animation:none!important; transition:none!important; }
+}

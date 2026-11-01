@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, ConfigDict
 import database
 import words
 
-app = FastAPI(title="Hukommelse LM API", version="2.5.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="Hukommelse LM API", version="2.6.0", docs_url=None, redoc_url=None)
 
 # A publicly reachable origin must be placed behind HTTPS and a firewall or
 # Cloudflare Tunnel. Never accept arbitrary Host headers on the origin.
@@ -131,6 +131,12 @@ class Submission(BaseModel):
     math_correct: int = Field(default=0, ge=0, le=100)
 
 
+class Perception(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    perceived_difference: Literal['NONE','SMALL','MODERATE','LARGE','UNSURE','SKIPPED']
+    perceived_easiest: Literal['ORANGE','BLUE','NEUTRAL','SAME','UNSURE','SKIPPED']
+
+
 def authorize(participant_id: str, token: str | None) -> None:
     if not database.verify_token(participant_id, token):
         # Identical error for missing IDs, stale protocol and invalid secrets.
@@ -171,7 +177,7 @@ def build_state(participant_id: str) -> dict:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "2.5.0"}
+    return {"status": "ok", "version": "2.6.0"}
 
 
 @app.get("/api/config")
@@ -264,6 +270,20 @@ def submit(participant_id: str, round_index: int, submission: Submission,
         raise HTTPException(status_code=409, detail=f"Cannot submit round: {exc}") from exc
 
 
+@app.post("/api/participants/{participant_id}/perception", status_code=201)
+def post_perception(participant_id: str, payload: Perception,
+                    x_participant_token: str | None = Header(default=None)):
+    authorize(participant_id, x_participant_token)
+    if (payload.perceived_difference == 'SKIPPED') != (payload.perceived_easiest == 'SKIPPED'):
+        raise HTTPException(status_code=422, detail="Skip both questions or answer separately")
+    try:
+        database.save_perception(participant_id, payload.perceived_difference,
+                                 payload.perceived_easiest)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=f"Cannot record feedback: {exc}") from exc
+    return {"saved": True}
+
+
 @app.delete("/api/participants/{participant_id}", status_code=204)
 def withdraw(participant_id: str, x_participant_token: str | None = Header(default=None)):
     authorize(participant_id, x_participant_token)
@@ -288,6 +308,24 @@ def admin_export(x_admin_token: str | None = Header(default=None)):
     writer.writerows(database.export_rows())
     return Response(out.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": "attachment; filename=study_results.csv",
+                             "Cache-Control": "no-store"})
+
+
+@app.get("/api/admin/perceptions.csv")
+def admin_perceptions(x_admin_token: str | None = Header(default=None)):
+    expected = os.getenv("STUDY_ADMIN_TOKEN", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="Admin export is not configured")
+    if not x_admin_token or not secrets.compare_digest(x_admin_token, expected):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    output = io.StringIO()
+    fields = ["participant_id", "protocol_version", "language", "group_name",
+              "perceived_difference", "perceived_easiest", "completed_at"]
+    writer = csv.DictWriter(output, fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(database.export_perceptions())
+    return Response(output.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": "attachment; filename=perceptions.csv",
                              "Cache-Control": "no-store"})
 
 
