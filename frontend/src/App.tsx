@@ -315,7 +315,7 @@ function Distraction({ seconds, lang, id, index }: { seconds: number; lang: Lang
     <h1>{t('En liten mental pause', 'A quick mental reset')}</h1>
     <p>{t('Løs regnestykkene. Ikke repeter ordparene mens du venter.', 'Solve the arithmetic problems. Do not rehearse the word pairs while waiting.')}</p>
     <div className="math-card"><span>{t('HVA BLIR SUMMEN?', 'WHAT IS THE SUM?')}</span>
-      <div className="math-expression">{question.a} <small>+</small> {question.b} <small>=</small> <span>?</span></div>
+      <div className="math-expression">{question.a} <small>+</small> {question.b} <small>=</small> <span className="math-unknown" aria-label={t('Ukjent svar', 'Unknown answer')}>?</span></div>
       <form onSubmit={event => {event.preventDefault(); answer();}} className="math-form">
         <input aria-label={t('Svaret ditt', 'Your answer')} type="number" inputMode="numeric" value={value} onChange={event=>setValue(event.target.value)} placeholder={t('Ditt svar','Your answer')}/>
         <Button type="submit">{t('Svar', 'Submit')} <ArrowRight size={17}/></Button>
@@ -469,13 +469,25 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefres
   </div>;
 }
 
-function PerceptionPage({ lang, onLanguageChange, onSubmit, busy, error }: {
+function PerceptionPage({ lang, onLanguageChange, onSubmit, onTimeout, deadline, offsetSeconds, busy, error }: {
   lang: Language; onLanguageChange: ChangeLanguage;
-  onSubmit: (payload: Perception) => Promise<void>; busy: boolean; error: string | null;
+  onSubmit: (payload: Perception) => Promise<void>; onTimeout: () => Promise<void>;
+  deadline: number | null | undefined; offsetSeconds: number;
+  busy: boolean; error: string | null;
 }) {
   const t = (nb: string, en: string) => translate(nb, en, lang);
   const [difference, setDifference] = useState<Perception['perceived_difference'] | ''>('');
   const [easiest, setEasiest] = useState<Perception['perceived_easiest'] | ''>('');
+  const remaining = useCountdown(deadline, offsetSeconds);
+  const timedOut = remaining === 0;
+  useEffect(() => {
+    if (!timedOut) return;
+    // The server is authoritative. Retry fetching the saved results if offline;
+    // do not fabricate a SKIPPED answer or create a synthetic survey response.
+    void onTimeout().catch(() => undefined);
+    const retry = window.setInterval(() => void onTimeout().catch(() => undefined), 3000);
+    return () => window.clearInterval(retry);
+  }, [timedOut, onTimeout]);
   const differenceOptions: {value: Perception['perceived_difference']; nb: string; en: string}[] = [
     {value:'NONE',nb:'Ingen forskjell',en:'No difference'},
     {value:'SMALL',nb:'Liten forskjell',en:'Small difference'},
@@ -495,13 +507,24 @@ function PerceptionPage({ lang, onLanguageChange, onSubmit, busy, error }: {
       <p className="perception-step">{t('Ferdig med forsøket', 'The study is complete')}</p>
       <h1>{t('Hvordan opplevde du fargene?', 'How did the colors feel?')}</h1>
       <p className="perception-intro">{t(
-        'To korte, valgfrie spørsmål før du får se resultatene. Det finnes ingen riktige eller gale svar.',
-        'Two optional questions before you see your results. There are no right or wrong answers.')}</p>
+        'Tre hukommelsesrunder er allerede lagret. Disse to spørsmålene er valgfrie og påvirker ikke poengsummen din.',
+        'All three memory rounds are already saved. These two questions are optional and do not affect your scores.')}</p>
+      <div className="perception-save-status" role="status">
+        <span><CheckCircle2 size={18} aria-hidden="true" /> {t('3 av 3 runder lagret på serveren', '3 of 3 rounds saved on the server')}</span>
+        <span className="perception-countdown" aria-label={t('Tid igjen til resultatvisning', 'Time until results appear')}>
+          <Clock3 size={16} aria-hidden="true" /> {String(Math.floor(remaining / 60)).padStart(2,'0')}:{String(remaining % 60).padStart(2,'0')}
+        </span>
+      </div>
+      <p className="perception-time-note">{timedOut
+        ? t('Tiden er ute. Vi åpner de lagrede resultatene dine. Hvis forbindelsen er brutt, kan du åpne siden på nytt senere.',
+            'Time is up. Opening your saved results. If your connection is interrupted, you can return later.')
+        : t('Etter 90 sekunder vises resultatene automatisk, selv om du ikke svarer. Du kan også hoppe over spørsmålene.',
+            'Your results appear automatically after 90 seconds, even if you do not answer. You may also skip the questions.')}</p>
       <form onSubmit={event => {
         event.preventDefault();
-        if (difference && easiest) void onSubmit({perceived_difference:difference, perceived_easiest:easiest});
+        if (!timedOut && difference && easiest) void onSubmit({perceived_difference:difference, perceived_easiest:easiest});
       }}>
-        <fieldset className="perception-question">
+        <fieldset className="perception-question" disabled={busy || timedOut}>
           <legend>{t('Opplevde du noen forskjell i hvor enkelt det var å huske ordene med de ulike bakgrunnsfargene?',
             'Did remembering the words feel different between the background colors?')}</legend>
           <div className="perception-options">{differenceOptions.map(option =>
@@ -511,7 +534,7 @@ function PerceptionPage({ lang, onLanguageChange, onSubmit, busy, error }: {
               <span>{t(option.nb, option.en)}</span>
             </label>)}</div>
         </fieldset>
-        <fieldset className="perception-question">
+        <fieldset className="perception-question" disabled={busy || timedOut}>
           <legend>{t('Hvilken bakgrunn opplevde du at det var enklest å huske ord med?',
             'With which background did remembering words feel easiest?')}</legend>
           <div className="perception-options">{easiestOptions.map(option =>
@@ -523,10 +546,10 @@ function PerceptionPage({ lang, onLanguageChange, onSubmit, busy, error }: {
         </fieldset>
         {error && <div className="error-banner" role="alert">{error}</div>}
         <div className="perception-actions">
-          <Button type="submit" disabled={!difference || !easiest || busy}>
+          <Button type="submit" disabled={!difference || !easiest || busy || timedOut}>
             {busy ? t('Lagrer …', 'Saving…') : t('Se resultatene mine', 'See my results')} <ArrowRight size={18}/>
           </Button>
-          <button type="button" className="perception-skip" disabled={busy}
+          <button type="button" className="perception-skip" disabled={busy || timedOut}
             onClick={() => void onSubmit({perceived_difference:'SKIPPED',perceived_easiest:'SKIPPED'})}>
             {t('Hopp over disse spørsmålene', 'Skip these questions')}
           </button>
@@ -728,7 +751,8 @@ export default function App() {
   if (view === 'calibration') return <Calibration lang={lang} onLanguageChange={setLang} onNext={() => {
     if(id) {localStorage.setItem(CALIBRATED_KEY,id); setView('study'); }
   }}/>
-  if (view === 'perception') return <PerceptionPage lang={lang} onLanguageChange={setLang} onSubmit={submitPerception} busy={busy} error={error}/>;
+  if (view === 'perception') return <PerceptionPage lang={lang} onLanguageChange={setLang} onSubmit={submitPerception}
+    onTimeout={refresh} deadline={state?.perception_deadline_at} offsetSeconds={offset} busy={busy} error={error}/>;
   if (view === 'complete') return <Complete lang={lang} onLanguageChange={setLang} onWithdraw={withdraw} error={error} state={state}/>;
   if (!state || !id) return null;
   return <Study state={state} lang={lang} onLanguageChange={setLang} offsetSeconds={offset} onStart={start} onRefresh={refresh} onSubmit={submit} onWithdraw={withdraw} busy={busy} error={error}/>;

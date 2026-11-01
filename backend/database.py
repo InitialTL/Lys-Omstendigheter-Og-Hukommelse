@@ -12,7 +12,7 @@ from pathlib import Path
 from itertools import permutations
 
 DB_PATH = Path(os.environ.get("STUDY_DATABASE", str(Path(__file__).with_name("results.db"))))
-PROTOCOL_VERSION = "2.6"
+PROTOCOL_VERSION = "2.7"
 WORDS_PER_ROUND = 8
 LANGUAGES = ("nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro")
 CONDITIONS = ("ORANGE", "BLUE", "NEUTRAL")
@@ -26,6 +26,7 @@ LEARN_SECONDS = 75
 DISTRACT_SECONDS = 30
 RECALL_SECONDS = 120
 ACCLIMATION_SECONDS = 60
+PERCEPTION_SECONDS = 90  # Optional, server-enforced; starts when the final round is saved.
 
 
 def connect() -> sqlite3.Connection:
@@ -55,7 +56,7 @@ def init_db() -> None:
                 list_order TEXT NOT NULL,
                 consented_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                protocol_version TEXT NOT NULL DEFAULT '2.6',
+                protocol_version TEXT NOT NULL DEFAULT '2.7',
                 token_hash TEXT
             );
             CREATE TABLE IF NOT EXISTS study_rounds (
@@ -97,7 +98,7 @@ def init_db() -> None:
             );
         """)
     # Migrate old pilot schemas without modifying or deleting old results.
-    # Only V2.6 participants are accepted by public study endpoints.
+    # Only V2.7 participants are accepted by public study endpoints.
     with connect() as db:
         existing = {r[1] for r in db.execute('PRAGMA table_info(study_participants)')}
         schema = db.execute("SELECT sql FROM sqlite_master WHERE name='study_participants'").fetchone()[0]
@@ -114,7 +115,7 @@ def init_db() -> None:
                 list_order TEXT NOT NULL,
                 consented_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                protocol_version TEXT NOT NULL DEFAULT '2.6',
+                protocol_version TEXT NOT NULL DEFAULT '2.7',
                 token_hash TEXT
             )''')
             protocol_expr = 'protocol_version' if 'protocol_version' in existing else "'2.0'"
@@ -138,7 +139,8 @@ def init_db() -> None:
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # Use the same clock as server-controlled phase deadlines; retain milliseconds.
+    return datetime.fromtimestamp(time.time(), timezone.utc).isoformat(timespec="milliseconds")
 
 
 def create_participant(language: str, age_band: str, gender: str) -> dict:
@@ -173,6 +175,21 @@ def verify_token(participant_id: str, access_token: str | None) -> bool:
     return secrets.compare_digest(provided, participant["token_hash"])
 
 
+def perception_deadline(db: sqlite3.Connection, participant_id: str) -> float | None:
+    """Survey window is anchored to the persisted third-round submission, not a browser clock.
+
+    No survey record is written on timeout: missing responses must remain
+    distinguishable from a participant deliberately choosing SKIPPED.
+    """
+    final = db.execute(
+        "SELECT completed_at FROM study_results WHERE participant_id=? AND round_index=2",
+        (participant_id,),
+    ).fetchone()
+    if not final:
+        return None
+    return datetime.fromisoformat(final['completed_at']).timestamp() + PERCEPTION_SECONDS
+
+
 def get_next(participant_id: str) -> dict | None:
     with connect() as db:
         participant = db.execute("SELECT * FROM study_participants WHERE id=?", (participant_id,)).fetchone()
@@ -192,9 +209,17 @@ def get_next(participant_id: str) -> dict | None:
             "server_now": time.time(),
         }
         if idx is None:
-            common["perception_done"] = db.execute(
+            deadline = perception_deadline(db, participant_id)
+            answered = db.execute(
                 "SELECT 1 FROM study_perceptions WHERE participant_id=?", (participant_id,)
             ).fetchone() is not None
+            expired = deadline is not None and common['server_now'] >= deadline
+            common.update({
+                "perception_done": answered or expired,
+                "perception_deadline_at": deadline,
+                "perception_timed_out": expired and not answered,
+                "results_saved": True,
+            })
             return common
         condition = SEQUENCES["ABC".index(participant["group_name"])][idx]
         list_id = json.loads(participant["list_order"])[idx]
@@ -288,7 +313,7 @@ def export_rows() -> list[dict]:
 
 
 def completed_rounds(participant_id: str) -> list[dict] | None:
-    '''Return raw results only for a fully finished V2.5 session.
+    '''Return raw results only for a fully finished current-protocol session.
 
     The API layer adds translations and grades after this gate, so the
     correct answers are never available while another round remains.
@@ -324,6 +349,9 @@ def save_perception(participant_id: str, difference: str, easiest: str) -> bool:
         ).fetchone()[0]
         if completed != 3:
             raise ValueError("study_not_complete")
+        deadline = perception_deadline(db, participant_id)
+        if deadline is None or time.time() >= deadline:
+            raise ValueError("feedback_window_expired")
         if db.execute(
             "SELECT 1 FROM study_perceptions WHERE participant_id=?", (participant_id,)
         ).fetchone():

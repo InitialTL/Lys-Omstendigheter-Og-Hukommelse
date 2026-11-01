@@ -495,7 +495,7 @@ def test_legacy_schema_migration_keeps_v22_results(tmp_path, monkeypatch):
 def test_v24_conditions_and_approximate_relative_srgb_luminance(client):
     import math
     c, _ = client
-    assert database.PROTOCOL_VERSION == '2.6'
+    assert database.PROTOCOL_VERSION == '2.7'
     assert database.CONDITIONS == ('ORANGE', 'BLUE', 'NEUTRAL')
     colors = c.get('/api/config').json()['conditions']
     assert set(colors) == set(database.CONDITIONS)
@@ -532,7 +532,7 @@ def test_v23_data_are_preserved_and_not_accepted_as_new_sessions(client):
     }).json()
     assert new['group'] == 'A'  # group balance only counts 2.5
     with database.connect() as db:
-        assert db.execute("SELECT protocol_version FROM study_participants WHERE id=?", (new['participant_id'],)).fetchone()[0] == '2.6'
+        assert db.execute("SELECT protocol_version FROM study_participants WHERE id=?", (new['participant_id'],)).fetchone()[0] == '2.7'
 
 
 def test_v24_same_color_codes_not_mixed_into_new_protocol(client):
@@ -630,3 +630,89 @@ def test_v25_is_retained_but_cannot_reenter_v26(client):
     assert c.get(f"/api/participants/{p['participant_id']}/next",headers={'X-Participant-Token':p['access_token']}).status_code == 401
     with database.connect() as db:
         assert db.execute('SELECT protocol_version FROM study_participants WHERE id=?',(p['participant_id'],)).fetchone()[0]=='2.5'
+
+
+def test_feedback_timeout_keeps_all_three_results_and_unanswered_is_not_skipped(client, monkeypatch):
+    """Closing the browser at the optional questions must never lose recall scores."""
+    c, clock = client
+    p = c.post('/api/participants', json={
+        'language': 'en', 'age_band': '18_24', 'gender': 'prefer_not', 'consent': True,
+    }).json()
+    pid = p['participant_id']
+    c.headers['X-Participant-Token'] = p['access_token']
+    for index in range(3):
+        c.post(f'/api/participants/{pid}/rounds/start')
+        clock['now'] += 167
+        answer = c.post(f'/api/participants/{pid}/rounds/{index}/submit', json={
+            'answers': [''] * 8, 'math_attempts': 2, 'math_correct': 1
+        })
+        assert answer.status_code == 200, answer.text
+        with database.connect() as db:
+            assert db.execute('SELECT COUNT(*) FROM study_results WHERE participant_id=?', (pid,)).fetchone()[0] == index + 1
+    # The entire objective study is persisted before the subjective form is shown.
+    before = c.get(f'/api/participants/{pid}/next').json()
+    assert before['finished'] and before['results_saved']
+    assert not before['perception_done']
+    assert 'review' not in before
+    deadline = before['perception_deadline_at']
+    assert 89 <= deadline - clock['now'] <= database.PERCEPTION_SECONDS
+    assert c.get('/api/config').json()['perception_seconds'] == 90
+
+    clock['now'] = deadline - .01
+    assert not c.get(f'/api/participants/{pid}/next').json()['perception_done']
+    # Simulate closing the browser instead of ever submitting the form.
+    clock['now'] = deadline + .01
+    after = c.get(f'/api/participants/{pid}/next').json()
+    assert after['perception_done'] and after['perception_timed_out']
+    assert len(after['review']) == 3
+    assert all(r['score'] == 0 and r['max_score'] == 8 for r in after['review'])
+    assert c.post(f'/api/participants/{pid}/perception', json={
+        'perceived_difference': 'NONE', 'perceived_easiest': 'SAME'
+    }).status_code == 409
+    with database.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM study_results WHERE participant_id=?', (pid,)).fetchone()[0] == 3
+        assert db.execute('SELECT COUNT(*) FROM study_perceptions WHERE participant_id=?', (pid,)).fetchone()[0] == 0
+    monkeypatch.setenv('STUDY_ADMIN_TOKEN', 'sample-admin-token')
+    rows = c.get('/api/admin/export.csv', headers={'X-Admin-Token':'sample-admin-token'})
+    assert rows.status_code == 200
+    assert len(rows.text.splitlines()) == 4
+
+
+def test_feedback_deadline_persists_and_timely_choice_is_saved(client):
+    c, clock = client
+    p = c.post('/api/participants', json={
+        'language': 'nb', 'age_band': '16_17', 'gender': 'prefer_not', 'consent': True,
+    }).json()
+    pid = p['participant_id']
+    c.headers['X-Participant-Token'] = p['access_token']
+    for i in range(3):
+        c.post(f'/api/participants/{pid}/rounds/start')
+        clock['now'] += 166
+        assert c.post(f'/api/participants/{pid}/rounds/{i}/submit', json={'answers':[''] * 8}).status_code == 200
+    url = f'/api/participants/{pid}'
+    deadline = c.get(url + '/next').json()['perception_deadline_at']
+    database.init_db()  # restart-like migration / DB reopening
+    assert c.get(url + '/next').json()['perception_deadline_at'] == deadline
+    clock['now'] = deadline - 2
+    saved = c.post(url + '/perception', json={
+        'perceived_difference': 'SMALL', 'perceived_easiest': 'BLUE'
+    })
+    assert saved.status_code == 201
+    clock['now'] = deadline + 120
+    after = c.get(url + '/next').json()
+    assert after['perception_done'] and not after['perception_timed_out']
+    with database.connect() as db:
+        assert tuple(db.execute('SELECT perceived_difference, perceived_easiest FROM study_perceptions WHERE participant_id=?', (pid,)).fetchone()) == ('SMALL','BLUE')
+
+
+def test_v26_data_remain_saved_but_not_reused_in_v27(client):
+    c, _ = client
+    p = c.post('/api/participants', json={
+        'language':'en','age_band':'18_24','gender':'prefer_not','consent':True
+    }).json()
+    with database.connect() as db:
+        db.execute('UPDATE study_participants SET protocol_version=? WHERE id=?', ('2.6', p['participant_id']))
+    assert c.get(f"/api/participants/{p['participant_id']}/next",
+                 headers={'X-Participant-Token':p['access_token']}).status_code == 401
+    with database.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM study_participants WHERE id=?',(p['participant_id'],)).fetchone()[0] == 1

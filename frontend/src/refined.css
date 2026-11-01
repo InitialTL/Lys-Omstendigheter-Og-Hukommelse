@@ -208,3 +208,24 @@
 @media (prefers-reduced-motion:reduce) {
   .experiment-surface, .experiment-surface.intro-transition::before { animation:none!important; transition:none!important; }
 }
+
+/* Quiet arithmetic punctuation: the unknown has the same visual weight as the equation. */
+.experiment-surface .math-expression .math-unknown {
+  color: var(--study-ink); font: inherit; opacity: .88;
+}
+/* Post-study feedback never determines whether an objective round is saved. */
+.perception-save-status {
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px;
+  border-block:1px solid #dedee3; padding:15px 0; margin:22px 0 10px;
+  font:550 14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:#3e4c42;
+}
+.perception-save-status span { display:inline-flex; align-items:center; gap:9px; }
+.perception-save-status .perception-countdown {
+  font-variant-numeric:tabular-nums; letter-spacing:.025em; color:#54545b;
+}
+.perception-time-note { font-size:14px; color:#63636b; line-height:1.6; max-width:60ch; }
+.perception-question:disabled { opacity:.72; }
+@media (max-width:420px) {
+  .perception-save-status { align-items:flex-start; }
+}

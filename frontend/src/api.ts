@@ -26,6 +26,9 @@ export type StudyState = {
   pairs?: Pair[];
   review?: RoundReview[];
   perception_done?: boolean;
+  perception_deadline_at?: number | null;
+  perception_timed_out?: boolean;
+  results_saved?: boolean;
 };
 
 export type Perception = {

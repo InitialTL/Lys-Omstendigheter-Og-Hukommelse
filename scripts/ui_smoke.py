@@ -6,6 +6,7 @@ analytics, paid API, or existing participant data is used.
 from __future__ import annotations
 import os
 import sqlite3
+from datetime import datetime, timezone
 import subprocess
 import sys
 import tempfile
@@ -86,6 +87,10 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         page.reload(wait_until='networkidle')
         page.locator('.math-form input').wait_for()
         check_color(['.ambient', '.study-card', '.math-card', '.math-form input'])
+        # The equation's question mark must no longer have a bright accent tint.
+        ink,mark = page.locator('.math-expression').evaluate('''el => [getComputedStyle(el).color,
+            getComputedStyle(el.querySelector('.math-unknown')).color]''')
+        assert mark == ink, (mark, ink)
         page.locator('.math-form input').fill('41')
         page.get_by_role('button', name='Submit', exact=True).click()
         assert '1' in page.locator('.math-card>small').inner_text()
@@ -123,21 +128,40 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         else:
             page.locator('.perception-main').wait_for(timeout=12000)
             assert page.locator('.results-review').count() == 0
-            if width == 390:
+            # Objective data must already be committed before the optional form.
+            with sqlite3.connect(db_path) as db:
+                assert db.execute('SELECT COUNT(*) FROM study_results WHERE participant_id=?', (participant_id,)).fetchone()[0] == 3
+            clock_text = page.locator('.perception-countdown').inner_text()
+            assert clock_text.startswith('01:'), clock_text
+            assert '3 of 3 rounds saved' in page.locator('.perception-save-status').inner_text()
+            if width == 320:
+                # Simulate abandoning the questionnaire without sending a response.
+                # Change only the test DB timestamp to avoid a real 90-second wait.
+                with sqlite3.connect(db_path) as db:
+                    db.execute('UPDATE study_results SET completed_at=? WHERE participant_id=? AND round_index=2',
+                               (datetime.fromtimestamp(time.time()-95, timezone.utc).isoformat(timespec='milliseconds'), participant_id))
+                page.reload(wait_until='networkidle')
+                page.locator('.results-review').wait_for(timeout=12000)
+            elif width == 390:
                 page.get_by_role('button',name='Skip these questions').click()
+                page.locator('.results-review').wait_for(timeout=12000)
             else:
                 page.locator('input[name="difference"][value="SMALL"]').check()
                 page.locator('input[name="easiest"][value="BLUE"]').check()
                 page.get_by_role('button', name='See my results').click()
-            page.locator('.results-review').wait_for(timeout=12000)
+                page.locator('.results-review').wait_for(timeout=12000)
     assert set(conditions_seen) == set(expected_colors), conditions_seen
     with sqlite3.connect(db_path) as db:
         saved = db.execute('SELECT score,math_attempts,math_correct FROM study_results WHERE participant_id=? ORDER BY round_index',
                            (participant_id,)).fetchall()
         perception = db.execute('SELECT perceived_difference,perceived_easiest FROM study_perceptions WHERE participant_id=?',
                                 (participant_id,)).fetchone()
-        assert perception is not None
-        assert perception[0] == ('SKIPPED' if width == 390 else 'SMALL'), perception
+        if width == 320:
+            # An uncompleted optional questionnaire is genuinely missing, not SKIPPED.
+            assert perception is None
+        else:
+            assert perception is not None
+            assert perception[0] == ('SKIPPED' if width == 390 else 'SMALL'), perception
         assert len(saved) == 3 and all(row[1] == 1 for row in saved), saved
         # The time-up path completed round 2 automatically, not by a click.
         after_timeout = db.execute('SELECT answers FROM study_results WHERE participant_id=? AND round_index=1',
@@ -150,7 +174,7 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), f'Overflow in results at {width}px'
 
     assert not errors, f'Browser exceptions at {width}: {errors}'
-    print(f'PASS {width}×{height} mobile={mobile}, fade, 3-round flow, feedback and review')
+    print(f'PASS {width}×{height} mobile={mobile}, muted question mark, 3 saved rounds and optional feedback timeout')
     context.close()
 
 

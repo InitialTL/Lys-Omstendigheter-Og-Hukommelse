@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, ConfigDict
 import database
 import words
 
-app = FastAPI(title="Hukommelse LM API", version="2.6.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="Hukommelse LM API", version="2.7.0", docs_url=None, redoc_url=None)
 
 # A publicly reachable origin must be placed behind HTTPS and a firewall or
 # Cloudflare Tunnel. Never accept arbitrary Host headers on the origin.
@@ -176,7 +176,7 @@ def build_state(participant_id: str) -> dict:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "2.6.0"}
+    return {"status": "ok", "version": "2.7.0"}
 
 
 @app.get("/api/config")
@@ -193,6 +193,7 @@ def config():
         "acclimation_seconds": database.ACCLIMATION_SECONDS,
         "words_per_round": database.WORDS_PER_ROUND,
         "rounds": 3,
+        "perception_seconds": database.PERCEPTION_SECONDS,
         "measurement": "Backgrounds matched approximately for calculated sRGB relative luminance (~0.45); not physically calibrated, nor matched for perceived brightness, Kelvin or lux",
     }
 
