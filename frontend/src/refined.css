@@ -83,7 +83,7 @@
   position: relative;
   isolation: isolate;
 }
-.experiment-surface::before {
+.experiment-surface.intro-transition::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -206,5 +206,5 @@
   .topbar .research-label { display:none; }
 }
 @media (prefers-reduced-motion:reduce) {
-  .experiment-surface, .experiment-surface::before { animation:none!important; transition:none!important; }
+  .experiment-surface, .experiment-surface.intro-transition::before { animation:none!important; transition:none!important; }
 }

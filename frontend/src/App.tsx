@@ -442,7 +442,7 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefres
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [state.participant_id, index, phase]);
   const label = LABELS[condition];
-  return <div className={`experiment-surface ${phase === 'acclimation' ? 'is-acclimating' : ''}`}
+  return <div className={`experiment-surface ${phase === 'acclimation' ? 'is-acclimating' : ''} ${phase === 'setup' && index === 0 ? 'intro-transition' : ''}`}
     style={{ '--ambient-color': COLORS[condition], backgroundColor: COLORS[condition] } as CSSProperties}>
     {phase === 'acclimation' ? <Acclimation condition={condition} seconds={seconds}/> :
     <div className="ambient">
