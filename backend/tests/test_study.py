@@ -106,6 +106,11 @@ def test_complete_three_rounds_and_export(client, monkeypatch):
         assert submitted.status_code == 200
     final = c.get(f'/api/participants/{pid}/next').json()
     assert final['finished']
+    assert 'review' not in final
+    assert c.post(f'/api/participants/{pid}/perception', json={
+        'perceived_difference':'SKIPPED','perceived_easiest':'SKIPPED'
+    }).status_code == 201
+    final = c.get(f'/api/participants/{pid}/next').json()
     assert len(final['review']) == 3
     assert all(x['score']==8 and len(x['items']) == 8 for x in final['review'])
     assert all(x['math_correct']==4 and x['math_attempts']==5 for x in final['review'])
@@ -424,6 +429,11 @@ def test_independent_randomized_order_and_completed_feedback(client):
             assert 'review' not in c.get(path+'/next').json()
     end = c.get(path+'/next').json()
     assert end['finished']
+    assert 'review' not in end
+    assert c.post(path+'/perception', json={
+        'perceived_difference':'NONE', 'perceived_easiest':'SAME'
+    }).status_code == 201
+    end = c.get(path+'/next').json()
     assert [r['score'] for r in end['review']] == [8,7,8]
     assert all(x['math_attempts']==5 and x['math_correct']==4 for x in end['review'])
     assert end['review'][1]['items'][0]['correct'] is False
@@ -568,13 +578,14 @@ def test_perception_is_optional_post_study_private_and_single_submission(client,
         assert result.status_code == 200, result.text
     before = c.get(f'/api/participants/{pid}/next').json()
     assert before['finished'] and before['perception_done'] is False
-    assert len(before['review']) == 3
+    assert 'review' not in before
     submitted = c.post(path,json=payload)
     assert submitted.status_code == 201, submitted.text
     again = c.post(path,json=payload)
     assert again.status_code == 409
     after = c.get(f'/api/participants/{pid}/next').json()
     assert after['perception_done'] is True
+    assert len(after['review']) == 3
     with database.connect() as db:
         saved = db.execute('SELECT perceived_difference,perceived_easiest FROM study_perceptions WHERE participant_id=?', (pid,)).fetchone()
         assert tuple(saved) == ('SMALL','BLUE')

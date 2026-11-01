@@ -151,9 +151,8 @@ def build_state(participant_id: str) -> dict:
     learning_order = data.pop("learning_order", None)
     recall_order = data.pop("recall_order", None)
     if data["finished"]:
-        # Review is released ONLY after all three rounds are submitted.
-        # This prevents knowledge of correct answers contaminating later rounds.
-        rounds = database.completed_rounds(participant_id)
+        # Withhold scores until questions are answered OR deliberately skipped.
+        rounds = database.completed_rounds(participant_id) if data.get("perception_done") else None
         if rounds:
             data['review'] = [
                 {
