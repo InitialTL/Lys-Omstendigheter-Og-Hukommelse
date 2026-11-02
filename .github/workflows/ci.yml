@@ -2,7 +2,7 @@ name: Validate Hukommelse LM
 
 on:
   push:
-    branches: ['main', 'feature/hukommelse-lm-v2*']
+    branches: ['feature/hukommelse-lm-v2*']
   pull_request:
 
 permissions:
@@ -41,6 +41,9 @@ jobs:
       - name: Verify browser locale selection and RTL preparation
         working-directory: frontend
         run: npm run test:locale
+      - name: Verify device guidance and mobile language defaults
+        working-directory: frontend
+        run: npm run test:device
       - name: Type check and production build
         working-directory: frontend
         run: npm run build
@@ -77,6 +80,6 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:18081/api/health
           # docker exec uses the image's default (root) user; the actual
-          # PID 1 server process must have dropped to UID 10001.
+          # PID 1 web-server process must have dropped to UID 10001.
           docker exec hukommelse-smoke python -c "from pathlib import Path; u=int(next(x for x in Path('/proc/1/status').read_text().splitlines() if x.startswith('Uid:')).split()[1]); assert u==10001, u; print('Web server UID:',u)"
           docker exec hukommelse-smoke python -c "import sqlite3; c=sqlite3.connect('/data/results.db'); assert c.execute(\"select name from sqlite_master where name='study_drafts'\").fetchone(); print('SQLite checkpoint schema ready')"

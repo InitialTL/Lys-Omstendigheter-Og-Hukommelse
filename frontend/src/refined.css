@@ -233,3 +233,72 @@
 /* Quiet offline/checkpoint feedback; stimulus background remains unchanged. */
 .checkpoint-status { color: inherit; opacity: .72; font-size: .8rem; line-height: 1.4;
   text-align: center; margin: .45rem 0 .85rem; min-height: 1.1em; }
+
+/* 2.7.3: mobile-first enrollment and device-appropriate preparation.
+   This styling never applies to the experimental color plane. */
+.calibration-grid { grid-template-areas: "check visual"; }
+.calibration-grid .calibration-visual { grid-area: visual; }
+.calibration-grid .calibration-checklist { grid-area: check; }
+.language-preference {
+  display: grid; gap: 9px;
+  margin: 0 0 21px; padding: 16px;
+  border: 1px solid #d9d9df; border-radius: 16px;
+  background: #f7f7f9;
+}
+.language-preference label {
+  font-size: 15px; font-weight: 660; color: #242428;
+}
+.language-preference select {
+  display: block; width: 100%; min-height: 51px;
+  padding: 12px 14px; border-radius: 11px;
+  border: 1px solid #aaaab5; background: #fff;
+  font: 580 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1d1d1f;
+}
+.language-preference p {
+  margin: 0; line-height: 1.5; font-size: 12px; color: #606068;
+}
+.os-guide { display: grid; gap: 9px; }
+.os-guide .guide-kicker {
+  font-size: 11px; font-weight: 680; letter-spacing: .065em;
+  color: #64646c;
+}
+.os-guide b { display: block; font-size: 15px; font-weight: 650; }
+.os-guide p { margin: 0; }
+.os-guide .external-screen-tip {
+  margin-top: 7px; border-top: 1px solid #e4e4e8; padding-top: 12px;
+}
+.external-screen-tip summary {
+  color: #393940; cursor: pointer;
+  font-size: 13px; font-weight: 610; line-height: 1.5;
+  padding: 5px 0;
+}
+.external-screen-tip p { padding-top: 8px; }
+/* Always show the language label; it was previously visually hidden on phones. */
+.topbar .language-switch label {
+  position: static; width: auto; height: auto; overflow: visible;
+  clip-path: none; white-space: nowrap; font-size: 12px;
+}
+.topbar .language-switch select {
+  min-width: 110px; max-width: 156px; font-size: 15px; min-height: 44px;
+}
+@media (max-width: 800px) {
+  .calibration-grid { grid-template-areas: 'visual' 'check'; }
+  .calibration-grid .calibration-visual { grid-area: visual; }
+  .calibration-grid .calibration-checklist { grid-area: check; }
+  .calibration-checklist,.calibration-visual { padding: 20px; }
+}
+@media (max-width: 420px) {
+  .topbar { padding: 12px 12px; }
+  .topbar-right { gap: 4px; }
+  .topbar .language-switch { gap: 5px; }
+  .topbar .language-switch select { min-width: 100px; max-width: 118px; padding: 6px; }
+  .topbar .brand { gap: 6px; }
+  .language-preference { padding: 14px; }
+  .calibration-layout { padding-inline: 12px; }
+  .calibration-visual,.calibration-checklist { padding: 17px; }
+  .check-tile { min-height: 60px; }
+}
+@media (max-width: 355px) {
+  .topbar .brand-copy { display: none; }
+}

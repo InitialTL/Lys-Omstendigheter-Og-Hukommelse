@@ -6,9 +6,9 @@ import {
   ShieldCheck, Sun, ThermometerSun,
 } from 'lucide-react';
 import { api, COLORS, storeParticipantToken, clearParticipantToken } from './api';
-import { LANGUAGE_NAMES, OS_HELP, OS_NAMES, translate, detectBrowserLanguage, directionForLanguage } from './i18n';
+import { LANGUAGE_NAMES, OS_HELP, translate, detectBrowserLanguage, directionForLanguage } from './i18n';
+import { currentDeviceGuide } from './device';
 import { secondsRemaining, deadlinePassed } from './timing';
-import type { OSName } from './i18n';
 import type { Condition, Language, Pair, Registration, StudyState, Perception } from './api';
 
 const PARTICIPANT_KEY = 'lm_v2_participant';
@@ -97,6 +97,14 @@ function Intro({ lang, setLang, onRegister, busy, error }:
         <div className="enroll-head"><div className="enroll-icon"><Lightbulb size={22}/></div><div><span className="section-kicker">{t('DELTA I STUDIEN', 'PARTICIPATE')}</span><h2>{t('La oss begynne', 'Get started')}</h2></div></div>
         <p className="form-intro">{t('Svar på noen korte spørsmål før vi starter. Du kan når som helst trekke samtykket og slette dataene dine.',
           'Answer a few brief questions before starting. You may withdraw consent and delete your data at any time.')}</p>
+        <div className="language-preference">
+          <label htmlFor="registration-language">{t('Velg språk for forsøket', 'Choose your study language')}</label>
+          <select id="registration-language" value={lang} onChange={event => setLang(event.target.value as Language)}>
+            {Object.entries(LANGUAGE_NAMES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          </select>
+          <p>{t('Foreslått fra nettleserspråket ditt, uten IP-oppslag. Du kan endre det før du starter.',
+            'Suggested from your browser language, without an IP lookup. You can change it before starting.')}</p>
+        </div>
         <label className="field"><span>{t('Alder', 'Age')}</span><select value={age} onChange={event => setAge(event.target.value)}>
           <option value="16_17">16–17</option><option value="18_24">18–24</option><option value="25_44">25–44</option>
           <option value="45_plus">45+</option><option value="prefer_not">{t('Ønsker ikke å oppgi', 'Prefer not to say')}</option>
@@ -135,6 +143,7 @@ function FullscreenToggle({ lang }: { lang: Language }) {
   const [fullscreen, setFullscreen] = useState(() => Boolean(document.fullscreenElement));
   const [failure, setFailure] = useState(false);
   const t = (nb: string, en: string) => translate(nb, en, lang);
+  const supported = Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen);
   useEffect(() => {
     const listener = () => { setFullscreen(Boolean(document.fullscreenElement)); setFailure(false); };
     document.addEventListener('fullscreenchange', listener);
@@ -148,6 +157,7 @@ function FullscreenToggle({ lang }: { lang: Language }) {
       else setFailure(true);
     } catch { setFailure(true); }
   };
+  if (!supported) return null;
   return <div className="fullscreen-control">
     <Button secondary onClick={() => void toggle()}>
       {fullscreen ? <Minimize size={17}/> : <Maximize size={17}/>}
@@ -159,7 +169,7 @@ function FullscreenToggle({ lang }: { lang: Language }) {
 
 function Calibration({ lang, onNext, onLanguageChange }: { lang: Language; onNext: () => void; onLanguageChange: ChangeLanguage }) {
   const [checks, setChecks] = useState([false, false, false, false]);
-  const [osName, setOSName] = useState<OSName>('windows');
+  const [deviceGuide] = useState(currentDeviceGuide);
   const t = (nb: string, en: string) => translate(nb, en, lang);
   const toggle = (i: number) => setChecks(old => old.map((v,j) => i === j ? !v : v));
   return <div className="site-shell"><Header lang={lang} page={t('Forberedelser', 'Preparation')} onLanguageChange={onLanguageChange}/>
@@ -169,17 +179,6 @@ function Calibration({ lang, onNext, onLanguageChange }: { lang: Language; onNex
       <p className="page-description">{t('For at forsøket skal bli så sammenlignbart som mulig, bør alle bruke samme innstillinger gjennom de tre rundene.',
         'To make results as comparable as possible, keep the same settings throughout all three rounds.')}</p>
       <div className="calibration-grid">
-        <div className="calibration-checklist">
-          {[
-            [t('Sitt i et mørkt eller svakt opplyst rom', 'Use a dark or dimly lit room'), t('Behold den samme rombelysningen gjennom hele forsøket.', 'Keep room lighting unchanged throughout the study.')],
-            [t('Slå av automatisk farge og lysstyrke', 'Turn off automatic color and brightness'), t('Deaktiver nattmodus, True Tone, Night Shift og automatisk lysstyrke.', 'Disable night mode, True Tone, Night Shift, and automatic brightness.')],
-            [t('Still inn en fast skjermlysstyrke', 'Set a fixed screen brightness'), t('Juster til begge svake symboler så vidt er synlige. Ikke endre lysstyrken underveis.', 'Adjust brightness until the two low-contrast symbols are just visible. Keep that setting for all rounds.')],
-            [t('Slå av musikk og annen lyd', 'Mute music and other audio'), t('Stopp musikk, video, varslinger og lyd i hodetelefoner under hele forsøket.', 'Turn off music, videos, notifications and headphones with audio during the entire study.')],
-          ].map(([title, desc], i) => <button type="button" className={`check-tile ${checks[i] ? 'checked' : ''}`} onClick={() => toggle(i)} key={title} aria-pressed={checks[i]}>
-            <span className="check-square">{checks[i] ? <Check size={17}/> : i === 3 ? <VolumeX size={15}/> : null}</span><span><b>{title}</b><small>{desc}</small></span>
-          </button>)}
-          <FullscreenToggle lang={lang}/>
-        </div>
         <div className="calibration-visual">
           <div className="section-kicker">{t('KONTRASTKONTROLL', 'CONTRAST CHECK')}</div>
           <h3>{t('Ser du så vidt begge symbolene?', 'Can you barely see both symbols?')}</h3>
@@ -192,13 +191,25 @@ function Calibration({ lang, onNext, onLanguageChange }: { lang: Language; onNex
           <div className="calibration-hint"><Eye size={17}/>{t('Behold samme lysstyrke i alle rundene. Dette er en subjektiv test, ikke en kalibrert lysmåling.',
             'Keep the brightness unchanged for all rounds. This is only a subjective check, not calibrated luminance measurement.')}</div>
           <div className="os-guide">
-            <label htmlFor="study-os">{t('OPERATIVSYSTEM', 'OPERATING SYSTEM')}</label>
-            <select id="study-os" value={osName} onChange={e => setOSName(e.target.value as OSName)}>
-              {OS_NAMES.map(os => <option key={os} value={os}>{({windows:'Windows',macos:'macOS',linux:'Linux',ios:'iOS / iPadOS',android:'Android',external:'External monitor / TV'} as Record<OSName,string>)[os]}</option>)}
-            </select>
-            <b>{t('Slik endrer du skjermlysstyrken', 'How to change brightness')}</b>
-            <p>{OS_HELP[osName][lang] ?? OS_HELP[osName].en}</p>
+            <span className="guide-kicker">{t('TIPS FOR ENHETEN DIN', 'HELP FOR YOUR DEVICE')}</span>
+            <b>{t('Slik justerer du lysstyrken', 'How to adjust brightness')}</b>
+            <p>{OS_HELP[deviceGuide][lang] ?? OS_HELP[deviceGuide].en}</p>
+            <details className="external-screen-tip">
+              <summary>{t('Bruker du ekstern skjerm eller TV?', 'Using an external monitor or TV?')}</summary>
+              <p>{OS_HELP.external[lang] ?? OS_HELP.external.en}</p>
+            </details>
           </div>
+        </div>
+        <div className="calibration-checklist">
+          {[
+            [t('Sitt i et mørkt eller svakt opplyst rom', 'Use a dark or dimly lit room'), t('Behold den samme rombelysningen gjennom hele forsøket.', 'Keep room lighting unchanged throughout the study.')],
+            [t('Slå av automatisk farge og lysstyrke', 'Turn off automatic color and brightness'), t('Deaktiver nattmodus, True Tone, Night Shift og automatisk lysstyrke.', 'Disable night mode, True Tone, Night Shift, and automatic brightness.')],
+            [t('Still inn en fast skjermlysstyrke', 'Set a fixed screen brightness'), t('Juster til begge svake symboler så vidt er synlige. Ikke endre lysstyrken underveis.', 'Adjust brightness until the two low-contrast symbols are just visible. Keep that setting for all rounds.')],
+            [t('Slå av musikk og annen lyd', 'Mute music and other audio'), t('Stopp musikk, video, varslinger og lyd i hodetelefoner under hele forsøket.', 'Turn off music, videos, notifications and headphones with audio during the entire study.')],
+          ].map(([title, desc], i) => <button type="button" className={`check-tile ${checks[i] ? 'checked' : ''}`} onClick={() => toggle(i)} key={title} aria-pressed={checks[i]}>
+            <span className="check-square">{checks[i] ? <Check size={17}/> : i === 3 ? <VolumeX size={15}/> : null}</span><span><b>{title}</b><small>{desc}</small></span>
+          </button>)}
+          <FullscreenToggle lang={lang}/>
         </div>
       </div>
       <div className="calibration-action"><span>{checks.filter(Boolean).length}/4 {t('punkter fullført', 'checks completed')}</span>
@@ -682,7 +693,7 @@ function Complete({ lang, onLanguageChange, onWithdraw, error, state }: {
 export default function App() {
   const [lang, setLangState] = useState<Language>(() => {
     const stored = localStorage.getItem(LANGUAGE_KEY);
-    return stored && Object.hasOwn(LANGUAGE_NAMES, stored) ? stored as Language : detectBrowserLanguage(navigator.languages);
+    return stored && Object.hasOwn(LANGUAGE_NAMES, stored) ? stored as Language : detectBrowserLanguage(navigator.languages?.length ? navigator.languages : [navigator.language]);
   });
   const [id, setId] = useState<string | null>(() => localStorage.getItem(PARTICIPANT_KEY));
   const [view, setView] = useState<View>(() => localStorage.getItem(PARTICIPANT_KEY) ? 'loading' : 'intro');

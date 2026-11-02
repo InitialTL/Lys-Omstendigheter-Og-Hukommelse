@@ -45,12 +45,25 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     errors = []
     page.on('pageerror', lambda exc: errors.append(str(exc)))
     page.goto(BASE, wait_until='networkidle')
+    # Languages default to browser preference; the registration control is prominent.
+    assert page.locator('#registration-language').input_value() == 'en'
+    assert page.locator('#page-language').input_value() == 'en'
+    assert page.locator('#registration-language').is_visible()
+    assert page.locator('#study-os').count() == 0
+    if width <= 390:
+        assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), 'Intro horizontal overflow'
+        assert page.locator('.topbar .language-switch label').is_visible(), 'Mobile language label hidden'
     page.locator('.consent-control input').check()
     page.get_by_role('button', name='Begin experiment').click()
     try:
         page.locator('.calibration-checklist').wait_for(timeout=10000)
     except Exception as exc:
         raise AssertionError(f'Calibration was not shown at {width}px. Page text: {page.locator("body").inner_text()[:750]}; console: {errors}') from exc
+    assert page.locator('#study-os').count() == 0, 'Manual OS selector still required'
+    assert page.locator('.os-guide').is_visible()
+    assert page.locator('.os-guide p').first.inner_text().strip()
+    assert page.locator('.external-screen-tip summary').count() == 1
+    assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), 'Calibration overflow'
     for tile in page.locator('.check-tile').all():
         tile.click()
     page.get_by_role('button', name='I am ready').click()
@@ -208,6 +221,21 @@ def main():
                 try:
                     for width,height,mobile in [(320,640,True), (390,844,True), (768,1024,True), (1280,850,False)]:
                         one_device(browser, db_path, width, height, mobile)
+                    mobile_context = browser.new_context(
+                        viewport={'width': 375, 'height': 812}, locale='nb-NO',
+                        is_mobile=True, has_touch=True,
+                        user_agent='Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36')
+                    mobile_page = mobile_context.new_page()
+                    mobile_page.goto(BASE, wait_until='networkidle')
+                    assert mobile_page.locator('#registration-language').input_value() == 'nb'
+                    mobile_page.locator('.consent-control input').check()
+                    mobile_page.get_by_role('button', name='Start forsøket').click()
+                    mobile_page.locator('.os-guide').wait_for()
+                    assert 'Android' in mobile_page.locator('.os-guide p').first.inner_text()
+                    assert mobile_page.locator('#study-os').count() == 0
+                    assert not mobile_page.evaluate('document.documentElement.scrollWidth > innerWidth')
+                    mobile_context.close()
+                    print('PASS mobile Norwegian browser language and automatic Android guidance')
                 finally:
                     browser.close()
         finally:
