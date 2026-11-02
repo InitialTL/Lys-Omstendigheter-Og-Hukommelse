@@ -1,3 +1,13 @@
+import { interfaceKeys } from './localeKeys.ts';
+import nl from './locale-nl.ts';
+import it from './locale-it.ts';
+import pt from './locale-pt.ts';
+import da from './locale-da.ts';
+import pl from './locale-pl.ts';
+import ro from './locale-ro.ts';
+import { originalLocalePatches } from './locale-original-patches.ts';
+import { extraDeviceHelp } from './locale-device-help.ts';
+
 /** Curated interface languages. Unknown keys fall back to English deliberately. */
 export const LANGUAGE_NAMES = {
   nb: 'Norsk', en: 'English', sv: 'Svenska', de: 'Deutsch', fr: 'Français', es: 'Español',
@@ -232,13 +242,34 @@ const MESSAGES: Record<string, [string, string, string, string]> = {
 
 };
 
+const fullPacks: Partial<Record<Language, readonly string[]>> = { nl, it, pt, da, pl, ro };
+const interfaceKeyIndices = new Map(interfaceKeys.map((key, index) => [key, index]));
+
+export function hasInterfaceTranslation(lang: Language, en: string): boolean {
+  if (lang === 'nb' || lang === 'en') return true;
+  const index = interfaceKeyIndices.get(en);
+  if (index === undefined) return false;
+  const full = fullPacks[lang];
+  if (full) return Boolean(full[index]?.trim());
+  const record = MESSAGES[en];
+  const position = ({sv:0,de:1,fr:2,es:3} as Partial<Record<Language,number>>)[lang];
+  return Boolean((position === undefined ? undefined : record?.[position]) ||
+    originalLocalePatches[lang]?.[index]);
+}
+
 export function translate(nb: string, en: string, lang: Language): string {
   if (lang === 'nb') return nb;
   if (lang === 'en') return en;
+  const index = interfaceKeyIndices.get(en);
+  const pack = fullPacks[lang];
+  if (pack && index !== undefined) return pack[index] ?? en;
   const record = MESSAGES[en];
-  const index = ({ sv:0, de:1, fr:2, es:3 } as Partial<Record<Language, number>>)[lang];
-  // Further study languages currently use a clearly disclosed English UI fallback.
-  return record && index !== undefined ? record[index] : en;
+  const position = ({sv:0,de:1,fr:2,es:3} as Partial<Record<Language,number>>)[lang];
+  if (position !== undefined && record?.[position]) return record[position];
+  if (index !== undefined && originalLocalePatches[lang]?.[index])
+    return originalLocalePatches[lang][index];
+  // Preserve an intelligible fallback only for unrecognized future strings.
+  return en;
 }
 
 export type OSName = 'windows' | 'macos' | 'linux' | 'ios' | 'android' | 'external' | 'generic';
@@ -252,3 +283,8 @@ export const OS_HELP: Record<OSName, Partial<Record<Language, string>>> = {
   android: {nb:'Android: Sveip ned til hurtiginnstillinger → Lysstyrke. Slå av adaptiv lysstyrke og nattlys/øyekomfort i skjerminnstillingene.', en:'Android: Swipe down for Quick Settings → Brightness. Turn off Adaptive Brightness and Night Light/Eye Comfort in Display settings.', sv:'Android: Svep ned till snabbinställningar → Ljusstyrka. Stäng av adaptiv ljusstyrka och nattläge i skärminställningarna.', de:'Android: Schnelleinstellungen öffnen → Helligkeit. Adaptive Helligkeit und Nachtlicht/Augenkomfort unter Display deaktivieren.', fr:'Android : paramètres rapides → Luminosité. Désactivez la luminosité adaptative et le mode nuit dans les paramètres d’affichage.', es:'Android: ajustes rápidos → Brillo. Desactiva brillo adaptable y luz nocturna/protección ocular en Pantalla.'},
   external: {nb:'Ekstern skjerm/TV: Bruk skjermens egne knapper eller meny (OSD) for lysstyrke. Slå av automatisk kontrast, dynamisk lysstyrke og fargetilpasning.', en:'External monitor/TV: Use the physical buttons or on-screen display (OSD) to set brightness. Turn off dynamic contrast, adaptive brightness and color adjustments.', sv:'Extern skärm/TV: Använd skärmens knappar eller meny (OSD) för ljusstyrka. Stäng av dynamisk kontrast och automatisk anpassning.', de:'Externer Monitor/TV: Mit den Monitortasten bzw. dem Bildschirmmenü (OSD) die Helligkeit ändern. Dynamischen Kontrast und Automatik deaktivieren.', fr:'Moniteur externe/TV : réglez la luminosité avec les boutons ou le menu de l’écran (OSD). Désactivez le contraste dynamique et les réglages automatiques.', es:'Monitor externo/TV: ajusta el brillo con los botones o menú (OSD). Desactiva contraste dinámico y ajustes automáticos.'},
 };
+
+// Apply localized device guidance without changing the test/calibration rules.
+for (const [name, translations] of Object.entries(extraDeviceHelp)) {
+  Object.assign(OS_HELP[name as OSName], translations);
+}
