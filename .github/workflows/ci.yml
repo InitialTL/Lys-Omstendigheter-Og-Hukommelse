@@ -2,7 +2,7 @@ name: Validate Hukommelse LM
 
 on:
   push:
-    branches: ['feature/hukommelse-lm-v2*']
+    branches: ['main', 'feature/hukommelse-lm-v2*']
   pull_request:
 
 permissions:
