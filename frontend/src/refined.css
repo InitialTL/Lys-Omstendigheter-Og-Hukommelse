@@ -487,3 +487,6 @@
   .lang-picker-options {grid-template-columns:1fr; max-height:min(370px,55dvh)}
   .lang-picker-option {min-height:49px;}
 }
+
+/* Keep the registration language menu inside the form at phone widths. */
+.lang-picker:not(.lang-picker-compact) .lang-picker-panel { width:min(360px,100%); }
