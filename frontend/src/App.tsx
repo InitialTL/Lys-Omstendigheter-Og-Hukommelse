@@ -734,6 +734,8 @@ function Complete({ lang, onLanguageChange, error, state }: {
         <h1>{t('Bra jobbet med å fullføre.', 'Well done for finishing.')}</h1>
         <p>{t('Alle svarene er registrert. Nå kan du se hvordan det gikk – uten at resultatene påvirker de andre rundene.',
           'All your answers have been saved. You can now review your performance without affecting any later rounds.')}</p>
+        <p>{t('Forsøket er fullført for denne deltaker-ID-en. Du kan oppdatere nettsiden og se resultatene igjen, men ikke starte en ny gjennomføring med samme økt.',
+          'This participant session is complete. You can refresh the page to view your results again, but you cannot start another run in this session.')}</p>
       </div>
       <section className="results-overview" aria-label={t('Oppsummering', 'Summary')}>
         <div><span>{t('Ord du husket', 'Words recalled')}</span><strong>{recalled}<small>/{max || 24}</small></strong></div>
@@ -779,13 +781,39 @@ export default function App() {
   const setLang = (next: Language) => { setLangState(next); document.documentElement.lang = next; document.documentElement.dir = directionForLanguage(next); localStorage.setItem(LANGUAGE_KEY, next); };
   useEffect(() => { document.documentElement.lang = lang; document.documentElement.dir = directionForLanguage(lang); }, [lang]);
 
+  // Keep multiple tabs on the same participant. A newer tab must not create
+  // another enrollment merely because it was opened before registration.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== PARTICIPANT_KEY) return;
+      setError(null);
+      setWithdrawError(null);
+      setState(null);
+      if (event.newValue) {
+        setId(event.newValue);
+        setView('loading');
+      } else {
+        setId(null);
+        setView('intro');
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const getState = useCallback(async (participantID: string) => {
     const data = await api.next(participantID);
+    // An old request can finish after withdrawal in another tab. Never restore
+    // a deleted or replaced session from an out-of-order network response.
+    if (localStorage.getItem(PARTICIPANT_KEY) !== participantID) return;
     setOffset(data.server_now - Date.now() / 1000);
     setState(data);
-    // UI language is independent from the fixed, graded language of a running study.
+    // Server progress is authoritative. A lost calibration flag must never
+    // hide an active timed phase behind a second calibration screen.
+    const isInitialSetup = !data.finished && data.phase === 'setup' && data.round_index === 0;
+    if (!isInitialSetup) localStorage.setItem(CALIBRATED_KEY, participantID);
     if (data.finished) setView(data.perception_done ? 'complete' : 'perception');
-    else if (localStorage.getItem(CALIBRATED_KEY) !== participantID) setView('calibration');
+    else if (isInitialSetup && localStorage.getItem(CALIBRATED_KEY) !== participantID) setView('calibration');
     else setView('study');
   }, []);
 
@@ -800,6 +828,13 @@ export default function App() {
 
   const register = async (input: Registration) => {
     if (busy) return;
+    // Another tab may already have registered this browser. Reuse that
+    // participant instead of creating a duplicate record.
+    const existing = localStorage.getItem(PARTICIPANT_KEY) || id;
+    if (existing) {
+      if (existing !== id) { setId(existing); setView('loading'); }
+      return;
+    }
     setBusy(true); setError(null);
     try {
       const result = await api.register(input);

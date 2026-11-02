@@ -82,6 +82,72 @@ def test_experiment_flow_and_server_timers(client):
     assert tuple(row) == (8, 1, 'ORANGE')
 
 
+
+def test_redeploy_reinitialization_preserves_completed_results_and_rejects_replay(client):
+    """Reopen/migrate the exact same SQLite file, not a new in-memory database."""
+    c, clock = client
+    created = c.post('/api/participants', json={
+        'language':'nb','age_band':'16_17','gender':'prefer_not','consent':True
+    }).json()
+    pid = created['participant_id']
+    c.headers['X-Participant-Token'] = created['access_token']
+    url = f'/api/participants/{pid}'
+    for index in range(3):
+        assert c.post(url + '/rounds/start').json()['phase'] == 'acclimation'
+        clock['now'] += 166 + index
+        saved = c.post(url + f'/rounds/{index}/submit', json={
+            'answers': [''] * 8,
+            'math_attempts': 2 + index,
+            'math_correct': 1,
+        })
+        assert saved.status_code == 200, saved.text
+    before = c.get(url + '/next').json()
+    assert before['finished'] and before['results_saved']
+    with database.connect() as db:
+        original_rows = [
+            tuple(row) for row in db.execute(
+                'SELECT round_index,condition,score,answers,math_attempts FROM study_results '
+                'WHERE participant_id=? ORDER BY round_index', (pid,)
+            ).fetchall()
+        ]
+    assert len(original_rows) == 3
+    db_path = database.DB_PATH
+    # Multiple startups and schema checks must never overwrite the existing
+    # participant, access token, completed rounds or scores.
+    database.init_db()
+    database.init_db()
+    assert database.DB_PATH == db_path
+    after = c.get(url + '/next').json()
+    assert after['participant_id'] == pid
+    assert after['finished'] and after['completed'] == 3
+    assert after['perception_deadline_at'] == before['perception_deadline_at']
+    assert c.post(url + '/rounds/start').status_code == 409
+    assert c.post(url + '/rounds/2/submit', json={'answers':['wrong'] * 8}).status_code == 409
+    assert c.post(url + '/rounds/2/draft', json={
+        'revision':1, 'answers':['wrong'] * 8
+    }).status_code == 409
+    with database.connect() as db:
+        new_rows = [
+            tuple(row) for row in db.execute(
+                'SELECT round_index,condition,score,answers,math_attempts FROM study_results '
+                'WHERE participant_id=? ORDER BY round_index', (pid,)
+            ).fetchall()
+        ]
+        assert new_rows == original_rows
+        assert db.execute('SELECT COUNT(*) FROM study_participants WHERE id=?', (pid,)).fetchone()[0] == 1
+        assert db.execute('SELECT COUNT(*) FROM study_rounds WHERE participant_id=?', (pid,)).fetchone()[0] == 3
+    # Withdrawal is the only in-app operation that clears the old identity.
+    assert c.delete(url).status_code == 204
+    assert c.get(url + '/next').status_code == 401
+    with database.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM study_results WHERE participant_id=?', (pid,)).fetchone()[0] == 0
+    replacement = c.post('/api/participants', json={
+        'language':'nb','age_band':'16_17','gender':'prefer_not','consent':True
+    })
+    assert replacement.status_code == 201
+    assert replacement.json()['participant_id'] != pid
+
+
 def test_cancel_acclimation_returns_to_setup_and_restarts_full_wait(client):
     c, clock = client
     registration = c.post('/api/participants', json={

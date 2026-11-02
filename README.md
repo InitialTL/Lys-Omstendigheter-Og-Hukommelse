@@ -1,4 +1,4 @@
-# Hukommelse LM — pilotprotokoll 2.7 · programvare 2.7.6
+# Hukommelse LM — pilotprotokoll 2.7 · programvare 2.7.7
 
 
 ## Tilgjengelighet på mobil og språkvalg
@@ -20,6 +20,28 @@ som ein mogleg merksemdsfaktor i forskingsmetoden.
 ## Tilbaketrekking av samtykke i 2.7.6
 
 «Trekk samtykke» er no tilgjengeleg i alle delar av studien, også ved skjermkalibrering, fargetilvenning, valfrie spørsmål og gjenoppretting etter feil. Ei tilgjengeleg stadfestingsrute inne på sida erstattar nettlesaren sin `window.confirm`. Data blir sletta med det autentiserte DELETE-endepunktet på serveren. Berre etter stadfesta svar blir lokal deltakarsesjon og utkast sletta; ved nettverksfeil blir økta behalden og ein synleg feilmelding vist. Eigne nettlesartestar kontrollerer faktisk sletting i SQLite på mobil og nettbrett.
+
+## Øktbevaring og vern mot gjentaking i 2.7.7
+
+Eit sideoppfrisking eller ei ny publisering til **same Fly.io-app og same monterte
+`study_data`-volum** skal ikkje nullstille deltakarar eller innsendte resultat.
+Den autentiserte deltakar-ID-en ligg i `localStorage`, medan rundestart, fasar,
+resultat og svarutkast ligg i SQLite på `/data/results.db`. Når nettlesaren blir
+lasta inn på nytt, er det **tenaren** som bestemmer neste fase og om dei tre
+rundane er fullførte. Serveren nektar ein ny start eller dobbel levering etter
+fullføring. To opne faner på same nettstad deler aktiv økt.
+
+Dersom lokalt kalibreringsmerke manglar, men ein serverlagra runde har starta,
+blir ein deltakar ikkje send til ei ny skjermkalibrering. Testane simulerer
+nettlesaroppfrisking, fullført økt og fleire databaseinitialiseringar utan at
+resultat blir overskrivne. Berre stadfesta «Trekk samtykke» slettar denne økta
+og dataa hennar, og tillet ny deltaking frå same nettlesar.
+
+**Avgrensing:** Utan innlogging eller eingongskodar kan vi ikkje garantere éi
+gjennomføring per fysisk person. Ein annan nettlesar, privat modus eller
+sletting av `localStorage` kan føre til ny registrering; dette må opplysast
+i forskingsmetoden. Ta reservekopi av databasen, og slett aldri Fly.io-volumet
+når du oppdaterer programkoden.
 
 ## Host the research site without your own computer
 

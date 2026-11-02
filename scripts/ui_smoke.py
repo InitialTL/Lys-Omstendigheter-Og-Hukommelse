@@ -53,8 +53,22 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     if width <= 390:
         assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), 'Intro horizontal overflow'
         assert page.locator('.topbar .language-switch label').is_visible(), 'Mobile language label hidden'
+    second_tab = None
+    if width == 390:
+        # Open a second tab BEFORE enrollment: storage events must prevent
+        # duplicated participants across simultaneously open pages.
+        second_tab = context.new_page()
+        second_tab.goto(BASE, wait_until='networkidle')
+        assert second_tab.locator('.intro-layout').is_visible()
     page.locator('.consent-control input').check()
     page.get_by_role('button', name='Begin experiment').click()
+    if second_tab:
+        second_tab.locator('.calibration-checklist').wait_for(timeout=12000)
+        same_id = page.evaluate("localStorage.getItem('lm_v2_participant')")
+        assert second_tab.evaluate("localStorage.getItem('lm_v2_participant')") == same_id
+        second_tab.close()
+        with sqlite3.connect(db_path) as db:
+            assert db.execute('SELECT COUNT(*) FROM study_participants WHERE id=?', (same_id,)).fetchone()[0] == 1
     try:
         page.locator('.calibration-checklist').wait_for(timeout=10000)
     except Exception as exc:
@@ -104,9 +118,16 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         assert page.locator('.acclimation-screen').evaluate('(node) => getComputedStyle(node).backgroundColor') == 'rgba(0, 0, 0, 0)'
         assert page.locator('.experiment-surface').evaluate('(node) => getComputedStyle(node).transitionDuration') == '1.85s' 
         advance(db_path, participant_id, round_index, 61)
+        # Simulate losing ONLY the calibration marker after an app update.
+        # An already-started round must always resume from the server phase.
+        if round_index == 0:
+            page.evaluate("localStorage.removeItem('lm_v2_calibrated')")
         page.reload(wait_until='networkidle')
         page.locator('.pairs-grid .pair-tile').first.wait_for()
         assert page.locator('.pair-tile').count() == 8
+        if round_index == 0:
+            assert page.evaluate("localStorage.getItem('lm_v2_calibrated')") == participant_id
+        assert page.evaluate("localStorage.getItem('lm_v2_participant')") == participant_id
         # The stimulus is a SINGLE background surface. Cards, words and inputs
         # are transparent, preventing an unintentional white flash.
         def check_color(selectors):
@@ -218,6 +239,16 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     page.locator('.review-round summary').first.click()
     assert page.locator('.review-round').first.locator('.review-item').count() == 8
     assert page.locator('.results-overview').is_visible()
+    # A refresh after ALL three rounds cannot re-register, restart, or lose
+    # previously committed grades and the pseudonymous session.
+    displayed_before = page.locator('.results-overview').inner_text()
+    page.reload(wait_until='networkidle')
+    page.locator('.results-overview').wait_for(timeout=12000)
+    assert page.locator('.results-overview').inner_text() == displayed_before
+    assert page.evaluate("localStorage.getItem('lm_v2_participant')") == participant_id
+    assert page.get_by_role('button', name='Begin experiment').count() == 0
+    assert page.get_by_role('button', name='Start this round').count() == 0
+    assert page.get_by_text('This participant session is complete', exact=False).is_visible()
     assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), f'Overflow in results at {width}px'
     assert page.get_by_role('button', name='Withdraw consent').is_visible()
     if width == 390:

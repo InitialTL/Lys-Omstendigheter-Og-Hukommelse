@@ -164,3 +164,22 @@ Fly.io: from the repository root, run
 `fly deploy --app your-unique-study-name --ha=false` after reviewing changes.
 The database volume survives these app updates; deleting the app or volume is
 not an update and can permanently remove data.
+
+### Data and participant continuity checklist
+
+* Deploy to the **existing app**, with `study_data` still attached to `/data`.
+  Keep `STUDY_DATABASE=/data/results.db` and a single writable Machine.
+* Do not remove or replace the volume, deploy to a different application,
+  or clear the existing participant tables on startup.
+* The browser retains `lm_v2_participant` and `lm_v2_auth` in localStorage.
+  After reload, it queries the server's authoritative round state, so a
+  completed participant returns to the results screen, never a new enrollment.
+* A finished participant cannot start or submit more study rounds with the
+  existing identity. Consent withdrawal permanently deletes the old identity
+  and its records, permitting a new registration from that browser.
+* This is **one session per browser storage**, not guaranteed one person:
+  private mode, clearing storage or another device can create a new session.
+  Strict one-person eligibility would require distinct authenticated invitations.
+* Roll out updates between participant sessions and verify backups first.
+  In-progress deadlines still run during deployment, even when the website is
+  temporarily unreachable.
