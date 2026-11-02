@@ -75,6 +75,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  publicStats: () => request<{ completed_participants: number }>('/api/public/stats'),
   register: (payload: Registration) => request<{ participant_id: string; group: string; access_token: string }>(
     '/api/participants', { method: 'POST', body: JSON.stringify(payload) }
   ),

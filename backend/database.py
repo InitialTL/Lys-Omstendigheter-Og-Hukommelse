@@ -152,6 +152,16 @@ def now_iso() -> str:
     return datetime.fromtimestamp(time.time(), timezone.utc).isoformat(timespec="milliseconds")
 
 
+def completed_participant_count() -> int:
+    with connect() as db:
+        return db.execute("""SELECT COUNT(*) FROM (
+            SELECT p.id FROM study_participants p
+            JOIN study_results r ON r.participant_id=p.id
+            WHERE p.protocol_version=?
+            GROUP BY p.id HAVING COUNT(*)=3
+        )""", (PROTOCOL_VERSION,)).fetchone()[0]
+
+
 def create_participant(language: str, age_band: str, gender: str) -> dict:
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")

@@ -216,6 +216,11 @@ def health():
     return {"status": "ok", "version": "2.7.2"}
 
 
+@app.get("/api/public/stats")
+def public_stats():
+    return {"completed_participants": database.completed_participant_count()}
+
+
 @app.get("/api/config")
 def config():
     return {
