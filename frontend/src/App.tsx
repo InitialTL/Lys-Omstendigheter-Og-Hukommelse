@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api, COLORS, storeParticipantToken, clearParticipantToken } from './api';
 import { LANGUAGE_NAMES, OS_HELP, translate, detectBrowserLanguage, directionForLanguage } from './i18n';
+import LanguagePicker from './LanguagePicker';
 import { currentDeviceGuide } from './device';
 import { secondsRemaining, deadlinePassed } from './timing';
 import type { Condition, Language, Pair, Registration, StudyState, Perception } from './api';
@@ -30,15 +31,8 @@ type ChangeLanguage = (lang: Language) => void;
 function LanguageSwitcher({ lang, onChange, dark = false, disabled = false }: {
   lang: Language; onChange: ChangeLanguage; dark?: boolean; disabled?: boolean;
 }) {
-  return <div className={`language-switch${dark ? ' language-switch-dark' : ''}`}>
-    <label htmlFor={dark ? 'study-language' : 'page-language'}>{translate('Språk', 'Language', lang)}</label>
-    <select id={dark ? 'study-language' : 'page-language'} aria-label={translate('Språk', 'Language', lang)}
-      disabled={disabled} title={disabled ? translate('Språket er låst etter registrering for å sikre riktig skåring.', 'The study language is fixed after registration to ensure correct scoring.', lang) : undefined}
-      value={lang} onChange={event => onChange(event.target.value as Language)}>
-      {Object.entries(LANGUAGE_NAMES).map(([code, name]) =>
-        <option key={code} value={code}>{name}</option>)}
-    </select>
-  </div>;
+  return <LanguagePicker lang={lang} onChange={onChange} id={dark ? 'study-language' : 'page-language'}
+    compact dark={dark} disabled={disabled}/>;
 }
 
 
@@ -161,9 +155,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
           'Answer a few brief questions before starting. You may withdraw consent and delete your data at any time.')}</p>
         <div className="language-preference">
           <label htmlFor="registration-language">{t('Velg språk for forsøket', 'Choose your study language')}</label>
-          <select id="registration-language" value={lang} onChange={event => setLang(event.target.value as Language)}>
-            {Object.entries(LANGUAGE_NAMES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-          </select>
+          <LanguagePicker id="registration-language" lang={lang} onChange={setLang}/>
           <p>{t('Foreslått fra nettleserspråket ditt, uten IP-oppslag. Du kan endre det før du starter.',
             'Suggested from your browser language, without an IP lookup. You can change it before starting.')}</p>
         </div>
@@ -177,9 +169,6 @@ function Intro({ lang, setLang, onRegister, busy, error }:
           <option value="nonbinary">{t('Ikke-binær', 'Non-binary')}</option>
           <option value="other">{t('Annet', 'Other')}</option>
         </select></label>
-        {!['nb','en','sv','de','fr','es'].includes(lang) &&
-          <p className="locale-disclosure">{t('Språket for ordtesten er valgt. Veiledningen vises foreløpig på engelsk.',
-            'Your word-test language is selected. Some instructions currently appear in English.')}</p>}
         <label className="consent-control"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/>
           <span>{t('Jeg deltar frivillig og samtykker til at aldersgruppe, eventuelt kjønn, språk, testresultater og valgfrie svar om hvordan fargene opplevdes lagres med en tilfeldig deltaker-ID for forskning. Ingen navn eller e-postadresser samles inn.',
             'I participate voluntarily and agree that my age range, optional gender, language, test results and optional color-perception feedback are stored under a random participant ID for research. No names or email addresses are collected.')}</span>
@@ -633,7 +622,7 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onCancel
            phase === 'learning' ? <Learning pairs={state.pairs ?? []} seconds={seconds} lang={lang}/> :
            phase === 'distraction' ? <Distraction key={index} seconds={seconds} lang={lang} id={state.participant_id} index={index}/> :
            <Recall key={index} id={state.participant_id} state={state} seconds={seconds} offsetSeconds={offsetSeconds} lang={lang} onSubmit={onSubmit} busy={busy} error={error}/>}
-          {error && phase !== 'recall' && <div className="error-banner" role="alert">{error}<button onClick={()=>void onRefresh()}><RefreshCw size={15}/> {lang==='nb'?'Prøv igjen':'Retry'}</button></div>}
+          {error && phase !== 'recall' && <div className="error-banner" role="alert">{error}<button onClick={()=>void onRefresh()}><RefreshCw size={15}/> {translate('Prøv igjen','Retry',lang)}</button></div>}
         </div>
         <div className="study-under"><span><ShieldCheck size={15}/>{translate('Pseudonym deltaker', 'Pseudonymous study', lang)}</span>
           <span>{translate('Ikke endre skjerminnstillingene underveis', 'Keep screen settings unchanged', lang)}</span>

@@ -46,13 +46,26 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     page.on('pageerror', lambda exc: errors.append(str(exc)))
     page.goto(BASE, wait_until='networkidle')
     # Languages default to browser preference; the registration control is prominent.
-    assert page.locator('#registration-language').input_value() == 'en'
-    assert page.locator('#page-language').input_value() == 'en'
+    assert page.locator('#registration-language').inner_text().strip() == 'English'
+    assert page.locator('#page-language').inner_text().strip() == 'English'
     assert page.locator('#registration-language').is_visible()
+    # Changing the experiment language must translate the entire onboarding UI.
+    page.locator('#registration-language').click()
+    page.locator('#registration-language-panel input').fill('neder')
+    page.locator('#registration-language-panel .lang-picker-option').filter(has_text='Nederlands').click()
+    assert page.locator('#registration-language').inner_text().strip() == 'Nederlands'
+    assert page.get_by_text('Kunnen de kleuren om ons heen').is_visible()
+    assert page.get_by_text('Belangrijk: je moet in een volledig donkere kamer zijn').is_visible()
+    assert page.evaluate('document.documentElement.lang') == 'nl'
+    page.locator('#page-language').click()
+    page.locator('#page-language-panel input').fill('English')
+    page.locator('#page-language-panel .lang-picker-option').filter(has_text='English').click()
+    assert page.locator('#page-language').inner_text().strip() == 'English'
+    assert page.get_by_role('button', name='Begin experiment').is_visible()
     assert page.locator('#study-os').count() == 0
     if width <= 390:
         assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), 'Intro horizontal overflow'
-        assert page.locator('.topbar .language-switch label').is_visible(), 'Mobile language label hidden'
+        assert page.locator('.topbar .lang-picker-trigger').is_visible(), 'Mobile language picker hidden'
     second_tab = None
     if width == 390:
         # Open a second tab BEFORE enrollment: storage events must prevent
@@ -359,7 +372,7 @@ def main():
                         user_agent='Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36')
                     mobile_page = mobile_context.new_page()
                     mobile_page.goto(BASE, wait_until='networkidle')
-                    assert mobile_page.locator('#registration-language').input_value() == 'nb'
+                    assert mobile_page.locator('#registration-language').inner_text().strip() == 'Norsk'
                     mobile_page.locator('.consent-control input').check()
                     mobile_page.get_by_role('button', name='Start forsøket').click()
                     mobile_page.locator('.os-guide').wait_for()
