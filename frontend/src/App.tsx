@@ -42,6 +42,49 @@ function LanguageSwitcher({ lang, onChange, dark = false, disabled = false }: {
 }
 
 
+function WithdrawControl({ lang, onWithdraw, busy, error }: {
+  lang: Language; onWithdraw: () => Promise<void>; busy: boolean; error: string | null;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const t = (nb: string, en: string) => translate(nb, en, lang);
+  useEffect(() => {
+    if (!confirming) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy) setConfirming(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [confirming, busy]);
+  return <>
+    <button type="button" className="withdraw-access" onClick={() => setConfirming(true)}
+      aria-haspopup="dialog" aria-expanded={confirming} disabled={busy}>
+      <ShieldCheck size={16}/>{t('Trekk samtykke', 'Withdraw consent')}
+    </button>
+    {confirming && <div className="withdraw-shade">
+      <section role="dialog" aria-modal="true" aria-labelledby="withdraw-title"
+        aria-describedby="withdraw-description" className="withdraw-dialog">
+        <h2 id="withdraw-title">{t('Trekk samtykke?', 'Withdraw consent?')}</h2>
+        <p id="withdraw-description">{t(
+          'Vil du avslutte deltakelsen og slette alle data knyttet til deltaker-ID-en din? Dette kan ikke angres.',
+          'End your participation and permanently delete all data linked to your participant ID? This cannot be undone.'
+        )}</p>
+        {error && <p className="withdraw-error" role="alert">{t(
+          'Slettingen er ikke bekreftet. Den lokale økten er beholdt. Du kan prøve igjen.',
+          'Deletion has not been confirmed. Your local session is retained. You may try again.'
+        )} <span>{error}</span></p>}
+        <div className="withdraw-actions">
+          <button type="button" className="withdraw-keep" autoFocus disabled={busy}
+            onClick={() => setConfirming(false)}>{t('Fortsett forsøket', 'Continue the study')}</button>
+          <button type="button" className="withdraw-delete" disabled={busy}
+            onClick={() => void onWithdraw()}>
+            {busy ? t('Sletter …', 'Deleting…') : t('Ja, slett dataene mine', 'Yes, delete my data')}
+          </button>
+        </div>
+      </section>
+    </div>}
+  </>;
+}
+
 function Brand({ light = false }: { light?: boolean }) {
   return <div className={`brand ${light ? 'brand-light' : ''}`} aria-label="Hukommelse LM">
     <div className="brand-mark" aria-hidden="true">h<span>.</span></div>
@@ -504,10 +547,10 @@ function Recall({ state, seconds, offsetSeconds, lang, id, onSubmit, busy, error
   </div>;
 }
 
-function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onCancelAcclimation, onRefresh, onSubmit, onWithdraw, busy, error }: {
+function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onCancelAcclimation, onRefresh, onSubmit, busy, error }: {
   state: StudyState; offsetSeconds: number; lang: Language; onLanguageChange: ChangeLanguage;
   onStart: () => Promise<void>; onCancelAcclimation: () => Promise<void>; onRefresh: () => Promise<void>;
-  onSubmit: (answers: string[], hiddenCount: number) => Promise<void>; onWithdraw: () => Promise<void>; busy: boolean; error: string | null;
+  onSubmit: (answers: string[], hiddenCount: number) => Promise<void>; busy: boolean; error: string | null;
 }) {
   const condition = state.condition ?? 'NEUTRAL';
   const phase = state.phase ?? 'setup';
@@ -575,7 +618,7 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onCancel
         </div>
         <div className="study-under"><span><ShieldCheck size={15}/>{translate('Pseudonym deltaker', 'Pseudonymous study', lang)}</span>
           <span>{translate('Ikke endre skjerminnstillingene underveis', 'Keep screen settings unchanged', lang)}</span>
-          <span><button type="button" className="withdraw-link study-withdraw" onClick={() => void onWithdraw()}>{translate('Trekk samtykke', 'Withdraw', lang)}</button></span>
+          <span>{translate('Du kan trekke samtykket når som helst', 'You may withdraw consent at any time', lang)}</span>
         </div>
       </div>
     </div>
@@ -674,8 +717,8 @@ function PerceptionPage({ lang, onLanguageChange, onSubmit, onTimeout, deadline,
     </main><Footer lang={lang}/></div>;
 }
 
-function Complete({ lang, onLanguageChange, onWithdraw, error, state }: {
-  lang: Language; onLanguageChange: ChangeLanguage; onWithdraw: () => Promise<void>;
+function Complete({ lang, onLanguageChange, error, state }: {
+  lang: Language; onLanguageChange: ChangeLanguage;
   error: string | null; state: StudyState | null;
 }) {
   const t = (nb: string, en: string) => translate(nb, en, lang);
@@ -718,7 +761,6 @@ function Complete({ lang, onLanguageChange, onWithdraw, error, state }: {
       <div className="results-footnote"><ShieldCheck size={18}/><p>{t('Takk for bidraget ditt. Ikke gjenta forsøket for å forbedre poengsummen – et nytt forsøk vil gi misvisende forskningsdata.',
         'Thank you for taking part. Please do not repeat the experiment to improve your score, as retakes would distort the research data.')}</p></div>
       {error && <div className="error-banner" role="alert">{error}</div>}
-      <button type="button" className="withdraw-link" onClick={() => void onWithdraw()}>{t('Trekk samtykket og slett mine data', 'Withdraw consent and delete my data')}</button>
     </main><Footer lang={lang}/></div>;
 }
 
@@ -733,6 +775,7 @@ export default function App() {
   const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const setLang = (next: Language) => { setLangState(next); document.documentElement.lang = next; document.documentElement.dir = directionForLanguage(next); localStorage.setItem(LANGUAGE_KEY, next); };
   useEffect(() => { document.documentElement.lang = lang; document.documentElement.dir = directionForLanguage(lang); }, [lang]);
 
@@ -848,12 +891,10 @@ export default function App() {
   };
 
   const withdraw = async () => {
-    if (!id) return;
-    const okay = window.confirm(translate(
-      'Vil du trekke samtykket? Alle data som er registrert for denne deltaker-ID-en, slettes permanent.',
-      'Withdraw consent? All data associated with this participant ID will be permanently deleted.', lang));
-    if (!okay) return;
+    if (!id || busy) return;
+    setBusy(true); setWithdrawError(null);
     try {
+      // Retain the local session until the server confirms deletion.
       await api.withdraw(id);
       for (let index=0; index<3; index++) {
         localStorage.removeItem(draftKey(id,index));
@@ -865,27 +906,30 @@ export default function App() {
       clearParticipantToken();
       localStorage.removeItem(CALIBRATED_KEY);
       setId(null); setState(null); setError(null); setView('intro');
-    } catch (err) { setError(err instanceof Error ? err.message : 'Unable to withdraw'); }
+    } catch (err) {
+      setWithdrawError(err instanceof Error ? err.message : 'Unable to withdraw');
+    } finally { setBusy(false); }
   };
 
-  if (view === 'loading') return <div className="loading-page"><Brand/><div className="loading-spinner"/>
-    <p>{translate('Kobler til forsøket …', 'Connecting to study…', lang)}</p>
-    {error && <><div className="error-banner">{error}</div>
-      <Button onClick={() => { if(id) void getState(id).catch(() => undefined); }} secondary>
-        <RefreshCw size={17}/>{translate('Prøv igjen', 'Retry', lang)}</Button>
-      <button type="button" className="withdraw-link" onClick={() => {
-        localStorage.removeItem(PARTICIPANT_KEY); clearParticipantToken();
-        setId(null); setState(null); setError(null); setView('intro');
-      }}>{translate('Start på nytt med denne versjonen', 'Start a new session for this version', lang)}</button>
-    </>}
-  </div>;
-  if (view === 'intro') return <Intro lang={lang} setLang={setLang} onRegister={register} busy={busy} error={error}/>;
-  if (view === 'calibration') return <Calibration lang={lang} onLanguageChange={setLang} onNext={() => {
-    if(id) {localStorage.setItem(CALIBRATED_KEY,id); setView('study'); }
-  }}/>
-  if (view === 'perception') return <PerceptionPage lang={lang} onLanguageChange={setLang} onSubmit={submitPerception}
-    onTimeout={refresh} deadline={state?.perception_deadline_at} offsetSeconds={offset} busy={busy} error={error}/>;
-  if (view === 'complete') return <Complete lang={lang} onLanguageChange={setLang} onWithdraw={withdraw} error={error} state={state}/>;
-  if (!state || !id) return null;
-  return <Study state={state} lang={lang} onLanguageChange={setLang} offsetSeconds={offset} onStart={start} onCancelAcclimation={cancelAcclimation} onRefresh={refresh} onSubmit={submit} onWithdraw={withdraw} busy={busy} error={error}/>;
+  const content = (() => {
+    if (view === 'loading') return <div className="loading-page"><Brand/><div className="loading-spinner"/>
+      <p>{translate('Kobler til forsøket …', 'Connecting to study…', lang)}</p>
+      {error && <><div className="error-banner">{error}</div>
+        <Button onClick={() => { if (id) void getState(id).catch(() => undefined); }} secondary>
+          <RefreshCw size={17}/>{translate('Prøv igjen', 'Retry', lang)}</Button>
+      </>}
+    </div>;
+    if (view === 'intro') return <Intro lang={lang} setLang={setLang} onRegister={register} busy={busy} error={error}/>;
+    if (view === 'calibration') return <Calibration lang={lang} onLanguageChange={setLang} onNext={() => {
+      if (id) { localStorage.setItem(CALIBRATED_KEY,id); setView('study'); }
+    }}/>;
+    if (view === 'perception') return <PerceptionPage lang={lang} onLanguageChange={setLang} onSubmit={submitPerception}
+      onTimeout={refresh} deadline={state?.perception_deadline_at} offsetSeconds={offset} busy={busy} error={error}/>;
+    if (view === 'complete') return <Complete lang={lang} onLanguageChange={setLang} error={error} state={state}/>;
+    if (!state || !id) return null;
+    return <Study state={state} lang={lang} onLanguageChange={setLang} offsetSeconds={offset}
+      onStart={start} onCancelAcclimation={cancelAcclimation} onRefresh={refresh}
+      onSubmit={submit} busy={busy} error={error}/>;
+  })();
+  return <>{content}{id && <WithdrawControl lang={lang} onWithdraw={withdraw} busy={busy} error={withdrawError}/>}</>;
 }
