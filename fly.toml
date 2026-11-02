@@ -1,6 +1,6 @@
 # Change the app name to your unique Fly.io application name before launching.
 # Use ONE machine only, because SQLite is stored on ONE non-replicated volume.
-app = "replace-with-your-unique-study-name"
+app = "lys-omstendigheter-og-hukommelse"
 primary_region = "ams"
 
 [build]
