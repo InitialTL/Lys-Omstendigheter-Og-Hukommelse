@@ -1,4 +1,18 @@
-# Hukommelse LM — pilotprotokoll 2.7 · programvare 2.7.1
+# Hukommelse LM — pilotprotokoll 2.7 · programvare 2.7.2
+
+## Host the research site without your own computer
+
+For a low-maintenance public pilot, use **Railway Hobby** with a `/data` persistent
+volume (approximately $5/month minimum). For the lowest running cost, the same
+Dockerfile supports **Fly.io** with one 512 MB Machine and a 1 GB volume
+(typically about $3.50–$5+ per month). Both include HTTPS hostnames; no
+Cloudflare Tunnel is required. **Read [the complete Railway and Fly.io setup
+guide](docs/HOSTING.md) before deploying.**
+
+The hosting update retains experimental protocol 2.7. The application refuses
+to start on supported managed platforms if `/data` is not a mounted volume.
+When launched with elevated permission only to initialize root-owned storage,
+it then runs the application as non-root UID 10001.
 
 En responsiv React/TypeScript-frontend med FastAPI og SQLite for et anonymt, fjernbasert pilotforsøk. **Gjeldende forskningsspørsmål:** Påvirker **oransje, blå eller nøytral grå skjermbakgrunn** hvor godt deltakerne husker nylig lærte assosiasjoner mellom pseudord og objekter?
 

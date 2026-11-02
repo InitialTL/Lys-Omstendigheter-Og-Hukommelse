@@ -23,6 +23,8 @@ jobs:
         run: python -m pytest -q
       - name: Lightweight SQLite resource probe
         run: python scripts/resource_probe.py
+      - name: Validate hosted deployment contracts
+        run: python scripts/validate_hosting.py
   frontend-build:
     runs-on: ubuntu-latest
     steps:
@@ -56,10 +58,19 @@ jobs:
         run: docker build -t hukommelse-lm:ci .
       - name: Start container as unprivileged user and probe health
         run: |
+          # An unmounted cloud instance must refuse to start rather than write to ephemeral storage.
+          if docker run --rm -e STUDY_REQUIRE_PERSISTENT_VOLUME=1 hukommelse-lm:ci >/tmp/missing-volume.log 2>&1; then
+            echo "ERROR: application started without required persistent volume"
+            exit 1
+          fi
+          grep -q 'REFUSING START' /tmp/missing-volume.log
+          docker volume create hukommelse-smoke-data >/dev/null
+          trap 'docker rm -f hukommelse-smoke >/dev/null 2>&1 || true; docker volume rm hukommelse-smoke-data >/dev/null 2>&1 || true' EXIT
           docker run -d --rm --name hukommelse-smoke \
             --read-only --tmpfs /tmp:size=16m,noexec,nosuid,nodev \
+            -e STUDY_REQUIRE_PERSISTENT_VOLUME=1 \
+            -v hukommelse-smoke-data:/data \
             -p 127.0.0.1:18081:8000 hukommelse-lm:ci
-          trap 'docker rm -f hukommelse-smoke >/dev/null 2>&1 || true' EXIT
           for i in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:18081/api/health >/dev/null; then break; fi
             sleep 1

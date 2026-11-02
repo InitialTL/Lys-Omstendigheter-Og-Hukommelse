@@ -1,4 +1,7 @@
-# Production deployment — Hukommelse LM 2.7.1
+# Production deployment — Hukommelse LM 2.7.2
+
+For **externally hosted cloud deployment**, use the updated [Railway/Fly.io guide](HOSTING.md).
+The instructions below describe private, self-hosted origins.
 
 The public study collects research data. **Software tests are not a substitute for**
 checking consent rules for minors, Norwegian data-protection obligations, a

@@ -15,7 +15,7 @@ def check():
     errors = []
     warnings = []
     allowed = [x.strip() for x in os.getenv('STUDY_ALLOWED_HOSTS', '').split(',') if x.strip()]
-    if not allowed or all(x in ('localhost','127.0.0.1','::1','testserver') for x in allowed):
+    if not os.getenv('RAILWAY_PUBLIC_DOMAIN') and not os.getenv('FLY_APP_NAME') and (not allowed or all(x in ('localhost','127.0.0.1','::1','testserver') for x in allowed)):
         warnings.append('Set STUDY_ALLOWED_HOSTS to the actual public study hostname before publishing.')
     if '*' in allowed or any('://' in host for host in allowed):
         errors.append('STUDY_ALLOWED_HOSTS must use explicit hostnames, without protocols or *.')
@@ -31,6 +31,14 @@ def check():
         errors.append('STUDY_DATABASE parent directory is absent or not writable by the service user.')
     if not os.getenv('STUDY_DATABASE'):
         warnings.append('Set STUDY_DATABASE to persistent storage outside the application working tree.')
+    if os.getenv('RAILWAY_SERVICE_ID') or os.getenv('FLY_APP_NAME'):
+        if os.getenv('STUDY_DATABASE') != '/data/results.db':
+            errors.append('On Railway/Fly.io, STUDY_DATABASE must be /data/results.db.')
+        if os.getenv('STUDY_REQUIRE_PERSISTENT_VOLUME') != '1':
+            errors.append('Set STUDY_REQUIRE_PERSISTENT_VOLUME=1 on a hosted service.')
+        if not os.path.ismount('/data'):
+            warnings.append('Verify that the hosted /data path is an attached persistent volume.')
+
     if os.getenv('STUDY_TRUST_CLOUDFLARE') == '1':
         warnings.append('STUDY_TRUST_CLOUDFLARE requires an origin inaccessible directly from the internet.')
     print('Hukommelse LM deployment preflight')

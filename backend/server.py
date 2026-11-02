@@ -5,6 +5,7 @@ import json
 import ipaddress
 import io
 import os
+import re
 import secrets
 import time
 from collections import defaultdict, deque
@@ -21,13 +22,33 @@ from pydantic import BaseModel, Field, ConfigDict
 import database
 import words
 
-app = FastAPI(title="Hukommelse LM API", version="2.7.1", docs_url=None, redoc_url=None)
+app = FastAPI(title="Hukommelse LM API", version="2.7.2", docs_url=None, redoc_url=None)
 
 # A publicly reachable origin must be placed behind HTTPS and a firewall or
 # Cloudflare Tunnel. Never accept arbitrary Host headers on the origin.
-_hosts = [host.strip() for host in os.getenv(
-    "STUDY_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver,::1"
-).split(",") if host.strip()]
+def allowed_hosts() -> list[str]:
+    """Allow only explicit hostnames plus trustworthy platform-generated domains.
+
+    Adding the Railway-generated domain is necessary before the user has a
+    custom domain. A user-defined custom domain still requires an explicit
+    STUDY_ALLOWED_HOSTS value. Never use wildcard hostnames.
+    """
+    names = [host.strip() for host in os.getenv(
+        "STUDY_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver,::1"
+    ).split(",") if host.strip()]
+    # Railway deployment probes use this Host header, not the public domain.
+    if os.getenv("RAILWAY_SERVICE_ID"):
+        names.append("healthcheck.railway.app")
+    railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip().lower()
+    if railway_domain and re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", railway_domain):
+        names.append(railway_domain)
+    fly_app_name = os.getenv("FLY_APP_NAME", "").strip().lower()
+    if fly_app_name and re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", fly_app_name):
+        names.append(f"{fly_app_name}.fly.dev")
+    return list(dict.fromkeys(names))
+
+
+_hosts = allowed_hosts()
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=_hosts)
 
 # API requests only contain tiny JSON payloads. Reject oversized bodies at
@@ -182,7 +203,12 @@ def build_state(participant_id: str) -> dict:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "2.7.1"}
+    try:
+        with database.connect() as db:
+            db.execute("SELECT 1").fetchone()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database unavailable") from None
+    return {"status": "ok", "version": "2.7.2"}
 
 
 @app.get("/api/config")
