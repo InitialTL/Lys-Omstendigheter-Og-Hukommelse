@@ -1,4 +1,4 @@
-# Hukommelse LM — pilotprotokoll 2.7 · programvare 2.7.3
+# Hukommelse LM — pilotprotokoll 2.7 · programvare 2.7.4
 
 
 ## Tilgjengelighet på mobil og språkvalg
@@ -6,6 +6,8 @@
 Nettleserens foretrukne språk (`navigator.languages`) foreslås automatisk ved første besøk, uten IP-geolokalisering eller ekstern tjeneste. Deltakeren kan enkelt endre språk før registrering. Valgt testspråk lagres sammen med studiesesjonen for korrekt skåring. Et manuelt valgt språk huskes lokalt i nettleseren.
 
 Kalibreringen ber ikke om operativsystem. Den viser veiledende lysstyrkeråd fra lokale nettlesersignaler og har egne tips for eksterne skjermer. Signalet kan være feil og sendes **ikke** til backend. Skjermen tilpasses responsivt, og fullskjermknappen vises bare i nettlesere som støtter funksjonen. Disse UI-endringene endrer **ikke** forskningsprotokoll 2.7.
+
+**Presisering i 2.7.4:** Kontrastsymbolene kan være synlige ved alle lysstyrker på mobil, og skal ikke brukes som en terskel for skjermens luminans. Deltakerne blir i stedet bedt om å velge en fast, omtrent halv skjermlysstyrke der teksten er leselig, og beholde den gjennom alle rundene. Dette er en relativ, ikke fysisk standardisering: 50 % av skyveknappen tilsvarer ikke samme målt lysstyrke på ulike modeller. Ingen endringer i stimulifarger, tidsrammer, poengberegning eller datalagring.
 
 ## Host the research site without your own computer
 

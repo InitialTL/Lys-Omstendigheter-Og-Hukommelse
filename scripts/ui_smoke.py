@@ -63,6 +63,11 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     assert page.locator('.os-guide').is_visible()
     assert page.locator('.os-guide p').first.inner_text().strip()
     assert page.locator('.external-screen-tip summary').count() == 1
+    assert page.get_by_role('heading', name='Can you distinguish the symbols from their backgrounds?').is_visible()
+    calibration_text = page.locator('.calibration-visual').inner_text().lower()
+    assert 'remain visible at every brightness setting' in calibration_text
+    assert 'halfway on your device slider' in calibration_text
+    assert 'barely visible' not in page.locator('body').inner_text().lower()
     assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), 'Calibration overflow'
     for tile in page.locator('.check-tile').all():
         tile.click()

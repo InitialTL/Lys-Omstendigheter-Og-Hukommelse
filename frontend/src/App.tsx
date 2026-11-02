@@ -180,16 +180,16 @@ function Calibration({ lang, onNext, onLanguageChange }: { lang: Language; onNex
         'To make results as comparable as possible, keep the same settings throughout all three rounds.')}</p>
       <div className="calibration-grid">
         <div className="calibration-visual">
-          <div className="section-kicker">{t('KONTRASTKONTROLL', 'CONTRAST CHECK')}</div>
-          <h3>{t('Ser du så vidt begge symbolene?', 'Can you barely see both symbols?')}</h3>
-          <p>{t('Symbolet på hvitt er litt mørkere, og symbolet på svart er litt lysere. Endre lysstyrken til begge så vidt er synlige.',
-            'The symbol on white is slightly darker; the symbol on black is slightly lighter. Change brightness until both are barely visible, not clearly prominent.')}</p>
-          <div className="swatch-row" role="img" aria-label="Subtle white-on-white and black-on-black contrast calibration">
+          <div className="section-kicker">{t('SKJERMSJEKK', 'SCREEN CHECK')}</div>
+          <h3>{t('Kan du skille symbolene fra bakgrunnen?', 'Can you distinguish the symbols from their backgrounds?')}</h3>
+          <p>{t('Det er normalt å se begge symbolene ved alle lysstyrker på mange mobilskjermer. Ikke prøv å få dem til å forsvinne: Dette er bare en enkel sjekk av svak kontrast.',
+            'On many phones, both symbols remain visible at every brightness setting. Do not try to make them disappear: This is only a simple check of low contrast.')}</p>
+          <div className="swatch-row" role="img" aria-label="Low-contrast symbols against white and black backgrounds">
             <div className="swatch-light"><span className="shape-on-white" aria-hidden="true">✦</span></div>
             <div className="swatch-dark"><span className="shape-on-black" aria-hidden="true">✦</span></div>
           </div>
-          <div className="calibration-hint"><Eye size={17}/>{t('Behold samme lysstyrke i alle rundene. Dette er en subjektiv test, ikke en kalibrert lysmåling.',
-            'Keep the brightness unchanged for all rounds. This is only a subjective check, not calibrated luminance measurement.')}</div>
+          <div className="calibration-hint"><Eye size={17}/>{t('Still lysstyrken omtrent midt på enhetens skyveknapp, så lenge skjermen er lett å lese. Behold innstillingen gjennom alle rundene. Dette gir ikke samme fysiske lysstyrke på ulike skjermer.',
+            'Set brightness about halfway on your device slider, provided the screen is easy to read. Keep that setting for all rounds. This does not produce equal physical brightness across devices.')}</div>
           <div className="os-guide">
             <span className="guide-kicker">{t('TIPS FOR ENHETEN DIN', 'HELP FOR YOUR DEVICE')}</span>
             <b>{t('Slik justerer du lysstyrken', 'How to adjust brightness')}</b>
@@ -204,7 +204,7 @@ function Calibration({ lang, onNext, onLanguageChange }: { lang: Language; onNex
           {[
             [t('Sitt i et mørkt eller svakt opplyst rom', 'Use a dark or dimly lit room'), t('Behold den samme rombelysningen gjennom hele forsøket.', 'Keep room lighting unchanged throughout the study.')],
             [t('Slå av automatisk farge og lysstyrke', 'Turn off automatic color and brightness'), t('Deaktiver nattmodus, True Tone, Night Shift og automatisk lysstyrke.', 'Disable night mode, True Tone, Night Shift, and automatic brightness.')],
-            [t('Still inn en fast skjermlysstyrke', 'Set a fixed screen brightness'), t('Juster til begge svake symboler så vidt er synlige. Ikke endre lysstyrken underveis.', 'Adjust brightness until the two low-contrast symbols are just visible. Keep that setting for all rounds.')],
+            [t('Still inn en fast skjermlysstyrke', 'Set a fixed screen brightness'), t('Sett lysstyrken omtrent midt på skyveknappen (ca. 50 %), så lenge teksten er lett å lese. Ikke endre den mellom rundene.', 'Set brightness about halfway on the slider (around 50%), provided text is easy to read. Do not change it between rounds.')],
             [t('Slå av musikk og annen lyd', 'Mute music and other audio'), t('Stopp musikk, video, varslinger og lyd i hodetelefoner under hele forsøket.', 'Turn off music, videos, notifications and headphones with audio during the entire study.')],
           ].map(([title, desc], i) => <button type="button" className={`check-tile ${checks[i] ? 'checked' : ''}`} onClick={() => toggle(i)} key={title} aria-pressed={checks[i]}>
             <span className="check-square">{checks[i] ? <Check size={17}/> : i === 3 ? <VolumeX size={15}/> : null}</span><span><b>{title}</b><small>{desc}</small></span>
