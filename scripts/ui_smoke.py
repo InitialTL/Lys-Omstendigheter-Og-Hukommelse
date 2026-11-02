@@ -219,9 +219,88 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     assert page.locator('.review-round').first.locator('.review-item').count() == 8
     assert page.locator('.results-overview').is_visible()
     assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), f'Overflow in results at {width}px'
+    assert page.get_by_role('button', name='Withdraw consent').is_visible()
+    if width == 390:
+        page.get_by_role('button', name='Withdraw consent').click()
+        page.get_by_role('dialog', name='Withdraw consent?').get_by_role('button', name='Yes, delete my data').click()
+        page.locator('.intro-layout').wait_for(timeout=10000)
+        with sqlite3.connect(db_path) as db:
+            assert db.execute('SELECT COUNT(*) FROM study_results WHERE participant_id=?', (participant_id,)).fetchone()[0] == 0
 
     assert not errors, f'Browser exceptions at {width}: {errors}'
     print(f'PASS {width}×{height} mobile={mobile}, muted question mark, 3 saved rounds and optional feedback timeout')
+    context.close()
+
+
+
+def check_consent_withdrawal(browser, db_path: Path, phase: str, width: int):
+    """Real browser withdrawal confirms auth DELETE and all DB/local cleanup."""
+    mobile = width <= 600
+    context = browser.new_context(
+        viewport={'width': width, 'height': 844},
+        locale='en-US', is_mobile=mobile, has_touch=mobile
+    )
+    page = context.new_page()
+    errors = []
+    page.on('pageerror', lambda exc: errors.append(str(exc)))
+    page.goto(BASE, wait_until='networkidle')
+    page.locator('.consent-control input').check()
+    page.get_by_role('button', name='Begin experiment').click()
+    page.locator('.calibration-checklist').wait_for()
+    participant = page.evaluate("localStorage.getItem('lm_v2_participant')")
+    assert participant
+    if phase != 'calibration':
+        for tile in page.locator('.check-tile').all():
+            tile.click()
+        page.get_by_role('button', name='I am ready').click()
+        page.get_by_role('button', name='Start this round').click()
+        page.locator('.acclimation-screen').wait_for()
+        if phase == 'learning':
+            advance(db_path, participant, 0, 61)
+            page.reload(wait_until='networkidle')
+            page.locator('.pairs-grid').wait_for()
+
+    withdraw = page.get_by_role('button', name='Withdraw consent')
+    assert withdraw.is_visible(), f'Withdrawal is hidden at {width}px in {phase}'
+    withdraw.click()
+    dialog = page.get_by_role('dialog', name='Withdraw consent?')
+    dialog.wait_for()
+    dialog.get_by_role('button', name='Continue the study').click()
+    assert dialog.count() == 0
+    assert page.evaluate("localStorage.getItem('lm_v2_participant')") == participant
+
+    withdraw.click()
+    dialog = page.get_by_role('dialog', name='Withdraw consent?')
+
+    if phase == 'calibration':
+        # A failed DELETE must not claim success or destroy the local token.
+        def fail_delete(route):
+            if route.request.method == 'DELETE':
+                route.fulfill(status=503, body='temporarily unavailable')
+            else:
+                route.continue_()
+        pattern = '**/api/participants/**'
+        page.route(pattern, fail_delete)
+        dialog.get_by_role('button', name='Yes, delete my data').click()
+        dialog.get_by_role('alert').wait_for()
+        assert page.evaluate("localStorage.getItem('lm_v2_participant')") == participant
+        assert page.evaluate("localStorage.getItem('lm_v2_auth')") is not None
+        page.unroute(pattern, fail_delete)
+
+    dialog.get_by_role('button', name='Yes, delete my data').click()
+    page.locator('.intro-layout').wait_for(timeout=10000)
+    assert page.evaluate("localStorage.getItem('lm_v2_participant')") is None
+    assert page.evaluate("localStorage.getItem('lm_v2_auth')") is None
+    assert page.locator('.withdraw-access').count() == 0
+    with sqlite3.connect(db_path) as db:
+        for table in ('study_participants','study_rounds','study_results',
+                      'study_drafts','study_perceptions'):
+            query = ('SELECT COUNT(*) FROM study_participants WHERE id=?'
+                     if table == 'study_participants'
+                     else f'SELECT COUNT(*) FROM {table} WHERE participant_id=?')
+            assert db.execute(query, (participant,)).fetchone()[0] == 0, (phase, table)
+    assert not errors, errors
+    print(f'PASS consent withdrawal in {phase} at {width}px, persisted data removed')
     context.close()
 
 
@@ -241,6 +320,8 @@ def main():
                 try:
                     for width,height,mobile in [(320,640,True), (390,844,True), (768,1024,True), (1280,850,False)]:
                         one_device(browser, db_path, width, height, mobile)
+                    for phase,width in [('calibration',390), ('acclimation',390), ('learning',768)]:
+                        check_consent_withdrawal(browser, db_path, phase, width)
                     mobile_context = browser.new_context(
                         viewport={'width': 375, 'height': 812}, locale='nb-NO',
                         is_mobile=True, has_touch=True,
