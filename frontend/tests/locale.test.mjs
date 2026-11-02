@@ -29,7 +29,7 @@ test('every displayed interface message is translated in every listed language',
   for (const code of Object.keys(LANGUAGE_NAMES)) {
     for (const key of interfaceKeys) {
       assert.ok(hasInterfaceTranslation(code, key), `Missing ${code}: ${key}`);
-      assert.ok(translate('', key, code).trim(), `Blank ${code}: ${key}`);
+      assert.ok(translate(key, key, code).trim(), `Blank ${code}: ${key}`);
     }
     for (const platform of Object.keys(OS_HELP)) {
       assert.ok(OS_HELP[platform][code], `Missing ${code} device guide: ${platform}`);
