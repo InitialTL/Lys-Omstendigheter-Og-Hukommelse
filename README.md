@@ -1,4 +1,4 @@
-# Hukommelse LM — pilotprotokoll 2.7 · programvare 2.7.5
+# Hukommelse LM — pilotprotokoll 2.7 · programvare 2.7.6
 
 
 ## Tilgjengelighet på mobil og språkvalg
@@ -16,6 +16,10 @@ ny start. Innlæring, oppgåver, tidsgrenser og lagra resultat blir ikkje endra.
 Sidan teksten er synleg under fargeeksponeringa, må endringa dokumenterast
 som ein mogleg merksemdsfaktor i forskingsmetoden.
 
+
+## Tilbaketrekking av samtykke i 2.7.6
+
+«Trekk samtykke» er no tilgjengeleg i alle delar av studien, også ved skjermkalibrering, fargetilvenning, valfrie spørsmål og gjenoppretting etter feil. Ei tilgjengeleg stadfestingsrute inne på sida erstattar nettlesaren sin `window.confirm`. Data blir sletta med det autentiserte DELETE-endepunktet på serveren. Berre etter stadfesta svar blir lokal deltakarsesjon og utkast sletta; ved nettverksfeil blir økta behalden og ein synleg feilmelding vist. Eigne nettlesartestar kontrollerer faktisk sletting i SQLite på mobil og nettbrett.
 
 ## Host the research site without your own computer
 
