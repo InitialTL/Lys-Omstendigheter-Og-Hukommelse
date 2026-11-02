@@ -76,5 +76,7 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:18081/api/health
-          docker exec hukommelse-smoke python -c "import os; assert os.getuid()!=0; print('Non-root UID:',os.getuid())"
+          # docker exec uses the image's default (root) user; the actual
+          # PID 1 server process must have dropped to UID 10001.
+          docker exec hukommelse-smoke python -c "from pathlib import Path; u=int(next(x for x in Path('/proc/1/status').read_text().splitlines() if x.startswith('Uid:')).split()[1]); assert u==10001, u; print('Web server UID:',u)"
           docker exec hukommelse-smoke python -c "import sqlite3; c=sqlite3.connect('/data/results.db'); assert c.execute(\"select name from sqlite_master where name='study_drafts'\").fetchone(); print('SQLite checkpoint schema ready')"
