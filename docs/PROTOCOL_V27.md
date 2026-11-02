@@ -29,3 +29,11 @@ teksten er den same i alle tre fargevilkår, kan han påverke deltakarens
 oppmerksamheit. Noter distribusjonsdato og skil om nødvendig deltakarar etter
 programvareversjon i metode og analyse. Ikkje bland umerka grupper frå før og
 etter UI-endringa ved strenge samanlikningar.
+
+## Personvernretting i programvare 2.7.6
+
+Tilbaketrekking av samtykke er tilgjengeleg i alle forsøksfasar. Den tidlegare
+nettlesardialogen er bytt med ei tydeleg stadfesting inne på nettsida.
+Deltakaren blir send til startsida berre etter at tenaren har stadfesta
+sletting av data. Ved feil blir økta halden ved lag og feilen vist.
+Ingen fargebetingelsar, tidsfristar eller skåringsreglar er endra.
