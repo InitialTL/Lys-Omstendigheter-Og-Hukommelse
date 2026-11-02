@@ -37,3 +37,15 @@ nettlesardialogen er bytt med ei tydeleg stadfesting inne på nettsida.
 Deltakaren blir send til startsida berre etter at tenaren har stadfesta
 sletting av data. Ved feil blir økta halden ved lag og feilen vist.
 Ingen fargebetingelsar, tidsfristar eller skåringsreglar er endra.
+
+## Ny instruks om miljøkrav, 2. november 2026
+
+Deltakarane må no bruke **eit heilt mørkt rom**, med testskjermen som
+einaste lyskjelda. Den tidlegare instruksen tillét svakt lys. Dette
+er ei metodisk endring i miljøkrava, sjølv om stimulusfargar, tider og
+skåringsreglar er uendra. Dokumenter implementeringsdato og
+skil om nødvendig deltakarkohortar før og etter innstramminga.
+Mørkret kan ikkje verifiserast via nettlesaren.
+
+Startsida kan vise anonymt tal på deltakarar med tre fullførte rundar.
+Resultatsida kan dele offentleg studielenkje utan deltakaropplysningar.

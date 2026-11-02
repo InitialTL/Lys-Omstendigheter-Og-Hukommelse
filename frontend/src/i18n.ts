@@ -130,6 +130,25 @@ const MESSAGES: Record<string, [string, string, string, string]> = {
   'Submit answers': ['Lämna in svaren','Antworten abgeben','Envoyer les réponses','Enviar respuestas'],
   'Answers are submitted automatically when time runs out.':
     ['Svaren skickas automatiskt när tiden är slut.', 'Die Antworten werden nach Ablauf der Zeit automatisch gesendet.', 'Les réponses sont envoyées automatiquement à la fin du temps imparti.', 'Las respuestas se envían automáticamente al terminar el tiempo.'],
+  'Important: You must be in a completely dark room': ['Viktigt: Du måste vara i ett helt mörkt rum','Wichtig: Du musst in einem völlig dunklen Raum sein','Important : vous devez être dans une pièce complètement sombre','Importante: debes estar en una habitación completamente oscura'],
+  'Turn off all lights and other screens and close the curtains or blinds. Your study screen must be the only light source. Dim light is not enough.':
+    ['Släck alla lampor och andra skärmar och dra för gardinerna. Studieskärmen ska vara den enda ljuskällan. Svagt ljus räcker inte.',
+     'Schalte alle Lampen und andere Bildschirme aus und schließe Vorhänge oder Jalousien. Der Studienbildschirm muss die einzige Lichtquelle sein. Schwaches Licht reicht nicht.',
+     'Éteignez toutes les lumières et les autres écrans, et fermez les rideaux ou les stores. L’écran utilisé pour l’étude doit être la seule source lumineuse. Une faible lumière ne suffit pas.',
+     'Apaga todas las luces y otras pantallas y cierra las cortinas o persianas. La pantalla del estudio debe ser la única fuente de luz. Una luz tenue no es suficiente.'],
+  'Sit in a completely dark room': ['Sitt i ett helt mörkt rum','Sitze in einem völlig dunklen Raum','Installez-vous dans une pièce complètement sombre','Siéntate en una habitación completamente oscura'],
+  'Turn off lights and other screens and close the curtains. The study screen must be the only light source throughout all three rounds. Dim light is not enough.':
+    ['Släck lampor och andra skärmar och dra för gardinerna. Studieskärmen ska vara den enda ljuskällan under alla tre omgångar. Svagt ljus räcker inte.',
+     'Schalte Lampen und andere Bildschirme aus und schließe die Vorhänge. Der Studienbildschirm muss in allen drei Runden die einzige Lichtquelle sein. Schwaches Licht reicht nicht.',
+     'Éteignez les lumières et autres écrans et fermez les rideaux. L’écran étudié doit être la seule source de lumière pendant les trois manches. Une lumière faible ne suffit pas.',
+     'Apaga las luces y otras pantallas y cierra las cortinas. La pantalla del estudio debe ser la única fuente de luz durante las tres rondas. Una luz tenue no es suficiente.'],
+  'person has completed the study': ['person har slutfört studien','Person hat die Studie abgeschlossen','personne a terminé l’étude','persona ha completado el estudio'],
+  'people have completed the study': ['personer har slutfört studien','Personen haben die Studie abgeschlossen','personnes ont terminé l’étude','personas han completado el estudio'],
+  'Invite someone to take part': ['Bjud in någon att delta','Lade jemanden zur Teilnahme ein','Invitez quelqu’un à participer','Invita a alguien a participar'],
+  'Share the study link. Your results are not shared.': ['Dela länken till studien. Dina resultat delas inte.','Teile den Studienlink. Deine Ergebnisse werden nicht geteilt.','Partagez le lien de l’étude. Vos résultats ne sont pas partagés.','Comparte el enlace del estudio. Tus resultados no se comparten.'],
+  'Share the link': ['Dela länken','Link teilen','Partager le lien','Compartir enlace'],
+  'Link copied!': ['Länken har kopierats!','Link kopiert!','Lien copié !','¡Enlace copiado!'],
+  'Copy the link:': ['Kopiera länken:','Link kopieren:','Copiez le lien :','Copia el enlace:'],
   'STUDY COMPLETED': ['STUDIEN AVSLUTAD','STUDIE ABGESCHLOSSEN','ÉTUDE TERMINÉE','ESTUDIO FINALIZADO'],
   'Thank you for participating!': ['Tack för att du deltog!','Vielen Dank für deine Teilnahme!','Merci de votre participation !','¡Gracias por participar!'],
   'You have completed all three rounds. Your answers have been saved and contribute to this study.':

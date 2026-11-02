@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import {
   ArrowLeft, ArrowRight, Brain, Check, CheckCircle2, Clock3, Eye,
   Focus, Lightbulb, LockKeyhole, Monitor, Circle, RefreshCw, Maximize, Minimize, VolumeX,
-  ShieldCheck, Sun, ThermometerSun,
+  ShieldCheck, Sun, ThermometerSun, UsersRound, Share2,
 } from 'lucide-react';
 import { api, COLORS, storeParticipantToken, clearParticipantToken } from './api';
 import { LANGUAGE_NAMES, OS_HELP, translate, detectBrowserLanguage, directionForLanguage } from './i18n';
@@ -115,6 +115,15 @@ function Intro({ lang, setLang, onRegister, busy, error }:
   const [age, setAge] = useState('16_17');
   const [gender, setGender] = useState('prefer_not');
   const [consent, setConsent] = useState(false);
+  const [completedCount,setCompletedCount] = useState<number|null>(null);
+  useEffect(()=>{
+    let active=true;
+    void api.publicStats().then(data=>{
+      if(active && Number.isSafeInteger(data.completed_participants) && data.completed_participants>=0)
+        setCompletedCount(data.completed_participants);
+    }).catch(()=>{});
+    return ()=>{active=false};
+  },[]);
   const t = (nb: string, en: string) => translate(nb, en, lang);
   return <div className="site-shell">
     <Header lang={lang} onLanguageChange={setLang}/>
@@ -124,11 +133,21 @@ function Intro({ lang, setLang, onRegister, busy, error }:
         <h1>{t('Kan fargene rundt oss', 'Can the colors around us')}<br /><em>{t('påvirke hukommelsen?', 'affect our memory?')}</em></h1>
         <p className="hero-sub">{t('Bli med på et kort forskningsforsøk der vi sammenligner oransje, blå og grå skjermbakgrunn og undersøker om fargen påvirker hvor lett vi husker nye ord.',
           'Join a short research study comparing orange, blue and gray screen backgrounds to see whether background color affects word memory.')}</p>
+        <div className="room-requirement" role="note">
+          <Lightbulb size={20}/><div><strong>{t('Viktig: Du må være i et helt mørkt rom', 'Important: You must be in a completely dark room')}</strong>
+          <p>{t('Slå av alle lamper og andre skjermer, og trekk for vinduene. Testskjermen skal være den eneste lyskilden. Svakt lys er ikke nok.',
+          'Turn off all lights and other screens and close the curtains or blinds. Your study screen must be the only light source. Dim light is not enough.')}</p></div>
+        </div>
         <div className="stats-strip">
           <div><Clock3 size={21}/><strong>15–18</strong><span>{t('minutter', 'minutes')}</span></div>
           <div><LayersIcon/><strong>3</strong><span>{t('runder', 'rounds')}</span></div>
           <div><LockKeyhole size={21}/><strong>{t('Ingen navn', 'No names')}</strong><span>{t('registreres', 'recorded')}</span></div>
         </div>
+        {completedCount !== null && <div className="participant-count" role="status"><UsersRound size={19}/>
+          <span><strong>{completedCount.toLocaleString(lang)}</strong> {completedCount===1
+            ? t('person har gjennomført testen','person has completed the study')
+            : t('personer har gjennomført testen','people have completed the study')}</span>
+        </div>}
         <div className="process-preview">
           <div className="section-kicker">{t('SLIK FUNGERER DET', 'HOW IT WORKS')}</div>
           <div className="process-row"><span className="process-num">01</span><div><b>{t('Juster skjermen', 'Prepare your screen')}</b><small>{t('En enkel sjekkliste før forsøket starter', 'A simple checklist before beginning')}</small></div><Monitor size={19}/></div>
@@ -245,7 +264,7 @@ function Calibration({ lang, onNext, onLanguageChange }: { lang: Language; onNex
         </div>
         <div className="calibration-checklist">
           {[
-            [t('Sitt i et mørkt eller svakt opplyst rom', 'Use a dark or dimly lit room'), t('Behold den samme rombelysningen gjennom hele forsøket.', 'Keep room lighting unchanged throughout the study.')],
+            [t('Sitt i et helt mørkt rom', 'Sit in a completely dark room'), t('Slå av lamper og andre skjermer, og trekk for vinduene. Testskjermen må være eneste lyskilde i alle tre rundene. Svakt lys er ikke nok.', 'Turn off lights and other screens and close the curtains. The study screen must be the only light source throughout all three rounds. Dim light is not enough.')],
             [t('Slå av automatisk farge og lysstyrke', 'Turn off automatic color and brightness'), t('Deaktiver nattmodus, True Tone, Night Shift og automatisk lysstyrke.', 'Disable night mode, True Tone, Night Shift, and automatic brightness.')],
             [t('Still inn en fast skjermlysstyrke', 'Set a fixed screen brightness'), t('Sett lysstyrken omtrent midt på skyveknappen (ca. 50 %), så lenge teksten er lett å lese. Ikke endre den mellom rundene.', 'Set brightness about halfway on the slider (around 50%), provided text is easy to read. Do not change it between rounds.')],
             [t('Slå av musikk og annen lyd', 'Mute music and other audio'), t('Stopp musikk, video, varslinger og lyd i hodetelefoner under hele forsøket.', 'Turn off music, videos, notifications and headphones with audio during the entire study.')],
@@ -727,6 +746,17 @@ function Complete({ lang, onLanguageChange, error, state }: {
   const max = review.reduce((sum, round) => sum + round.max_score, 0);
   const mathCorrect = review.reduce((sum, round) => sum + round.math_correct, 0);
   const mathAttempts = review.reduce((sum, round) => sum + round.math_attempts, 0);
+  const [shareStatus,setShareStatus]=useState<'copied'|'manual'|null>(null);
+  const shareUrl=window.location.origin+'/';
+  const share=async()=>{
+    setShareStatus(null);
+    if(navigator.share){
+      try { await navigator.share({title:'Hukommelse LM',url:shareUrl}); return; }
+      catch(err){if(err instanceof Error && err.name==='AbortError')return;}
+    }
+    try {await navigator.clipboard.writeText(shareUrl);setShareStatus('copied');}
+    catch {setShareStatus('manual');}
+  };
   return <div className="site-shell"><Header lang={lang} onLanguageChange={onLanguageChange}/>
     <main className="results-wrap">
       <div className="results-head">
@@ -762,6 +792,14 @@ function Complete({ lang, onLanguageChange, error, state }: {
       </section>
       <div className="results-footnote"><ShieldCheck size={18}/><p>{t('Takk for bidraget ditt. Ikke gjenta forsøket for å forbedre poengsummen – et nytt forsøk vil gi misvisende forskningsdata.',
         'Thank you for taking part. Please do not repeat the experiment to improve your score, as retakes would distort the research data.')}</p></div>
+      <section className="results-share">
+        <div><h2>{t('Inviter noen til å delta','Invite someone to take part')}</h2>
+          <p>{t('Del lenken til forsøket. Dine egne resultater deles ikke.','Share the study link. Your results are not shared.')}</p></div>
+        <Button secondary onClick={()=>void share()}><Share2 size={18}/>{t('Del lenke','Share the link')}</Button>
+        {shareStatus==='copied' && <p role="status">{t('Lenken er kopiert!','Link copied!')}</p>}
+        {shareStatus==='manual' && <label>{t('Kopier lenken:','Copy the link:')}
+          <input value={shareUrl} readOnly onFocus={e=>e.currentTarget.select()}/></label>}
+      </section>
       {error && <div className="error-banner" role="alert">{error}</div>}
     </main><Footer lang={lang}/></div>;
 }
