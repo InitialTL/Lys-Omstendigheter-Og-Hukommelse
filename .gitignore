@@ -1,0 +1,17 @@
+# Local data & configuration
+*.db
+*.db-shm
+*.db-wal
+.env
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Frontend dependencies / generated outputs
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/.vite/
+.DS_Store

@@ -1,0 +1,82 @@
+name: Validate Hukommelse LM
+
+on:
+  push:
+    branches: ['feature/hukommelse-lm-v2*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend test requirements
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Run backend tests
+        working-directory: backend
+        run: python -m pytest -q
+      - name: Lightweight SQLite resource probe
+        run: python scripts/resource_probe.py
+      - name: Validate hosted deployment contracts
+        run: python scripts/validate_hosting.py
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+      - name: Verify phase countdown regression
+        working-directory: frontend
+        run: npm run test:timing
+      - name: Verify browser locale selection and RTL preparation
+        working-directory: frontend
+        run: npm run test:locale
+      - name: Type check and production build
+        working-directory: frontend
+        run: npm run build
+      - name: Prepare Chromium browser smoke tests
+        run: |
+          python -m pip install -r backend/requirements-dev.txt playwright
+          python -m playwright install --with-deps chromium
+      - name: Test mobile, tablet, desktop and complete experiment flow
+        run: python scripts/ui_smoke.py
+  container-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production container
+        run: docker build -t hukommelse-lm:ci .
+      - name: Start container as unprivileged user and probe health
+        run: |
+          # An unmounted cloud instance must refuse to start rather than write to ephemeral storage.
+          if docker run --rm -e STUDY_REQUIRE_PERSISTENT_VOLUME=1 hukommelse-lm:ci >/tmp/missing-volume.log 2>&1; then
+            echo "ERROR: application started without required persistent volume"
+            exit 1
+          fi
+          grep -q 'REFUSING START' /tmp/missing-volume.log
+          docker volume create hukommelse-smoke-data >/dev/null
+          trap 'docker rm -f hukommelse-smoke >/dev/null 2>&1 || true; docker volume rm hukommelse-smoke-data >/dev/null 2>&1 || true' EXIT
+          docker run -d --rm --name hukommelse-smoke \
+            --read-only --tmpfs /tmp:size=16m,noexec,nosuid,nodev \
+            -e STUDY_REQUIRE_PERSISTENT_VOLUME=1 \
+            -v hukommelse-smoke-data:/data \
+            -p 127.0.0.1:18081:8000 hukommelse-lm:ci
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18081/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:18081/api/health
+          # docker exec uses the image's default (root) user; the actual
+          # PID 1 server process must have dropped to UID 10001.
+          docker exec hukommelse-smoke python -c "from pathlib import Path; u=int(next(x for x in Path('/proc/1/status').read_text().splitlines() if x.startswith('Uid:')).split()[1]); assert u==10001, u; print('Web server UID:',u)"
+          docker exec hukommelse-smoke python -c "import sqlite3; c=sqlite3.connect('/data/results.db'); assert c.execute(\"select name from sqlite_master where name='study_drafts'\").fetchone(); print('SQLite checkpoint schema ready')"

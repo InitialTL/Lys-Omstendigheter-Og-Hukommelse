@@ -1,0 +1,22 @@
+services:
+  hukommelse-lm:
+    build: .
+    ports:
+      - '127.0.0.1:8000:8000'
+    environment:
+      STUDY_DATABASE: /data/results.db
+      STUDY_ADMIN_TOKEN: ${STUDY_ADMIN_TOKEN:-}
+      STUDY_ALLOWED_HOSTS: ${STUDY_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      STUDY_ALLOWED_ORIGINS: ${STUDY_ALLOWED_ORIGINS:-}
+      STUDY_TRUST_CLOUDFLARE: ${STUDY_TRUST_CLOUDFLARE:-0}
+    volumes:
+      - study-data:/data
+    restart: unless-stopped
+    pids_limit: 128
+    mem_limit: 384m
+    cpus: 1.5
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+volumes:
+  study-data:

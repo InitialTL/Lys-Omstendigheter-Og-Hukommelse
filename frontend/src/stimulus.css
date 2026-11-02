@@ -1,0 +1,108 @@
+/* Protocol 2.5 — continuous solid-color stimulus, including reading, writing,
+   controls, and the surrounding viewport. No white card or tinted overlay.
+   Only transparent lines and text distinguish the content from its background. */
+.ambient {
+  --study-ink: #172c2d;
+  --study-muted: #304448;
+  --study-rule: rgba(17, 41, 43, .42);
+  --study-rule-soft: rgba(17, 41, 43, .26);
+  --study-deep: #183a3e;
+  color: var(--study-ink);
+  background: var(--ambient-color);
+}
+.ambient .ambient-overlay,
+.ambient .study-card,
+.ambient .study-header > .brand,
+.ambient .study-header-right,
+.ambient .study-header .language-switch select,
+.ambient .study-header .fullscreen-control > .btn,
+.ambient .pair-tile,
+.ambient .answer-field,
+.ambient .answer-field input,
+.ambient .math-card,
+.ambient .math-form input {
+  background: var(--ambient-color);
+}
+.ambient .study-card {
+  color: var(--study-ink);
+  border: 1.5px solid var(--study-rule);
+  box-shadow: none;
+  border-radius: 8px;
+}
+.ambient .study-card-top { border-bottom-color: var(--study-rule-soft); }
+.ambient .study-header > .brand,
+.ambient .study-header-right { border: 1px solid var(--study-rule-soft); box-shadow: none; }
+.ambient .study-header .brand-copy b,
+.ambient .study-header .brand-copy b span,
+.ambient .study-header .brand-copy small,
+.ambient .study-header .language-switch label,
+.ambient .study-header .language-switch select,
+.ambient .study-header .fullscreen-control > .btn,
+.ambient .condition-chip,
+.ambient .round-chip,
+.ambient .study-under,
+.ambient .study-under .withdraw-link {
+  color: var(--study-ink);
+}
+.ambient .study-header .language-switch select,
+.ambient .study-header .fullscreen-control > .btn { border-color: var(--study-rule); }
+.ambient .study-header .language-switch select:disabled { opacity: .82; }
+.ambient .research-index,
+.ambient .phase-tag,
+.ambient .phase-main > p,
+.ambient .study-center > p,
+.ambient .no-notes,
+.ambient .clock-heading > span,
+.ambient .math-card > span,
+.ambient .math-card > small,
+.ambient .answer-field small,
+.ambient .pair-number,
+.ambient .recall-main .submit-note {
+  color: var(--study-muted);
+}
+.ambient .phase-main h1,
+.ambient .study-center h1,
+.ambient .math-expression,
+.ambient .clock-heading b,
+.ambient .pair-tile b,
+.ambient .pair-tile > span:last-child,
+.ambient .answer-field b,
+.ambient .answer-field input,
+.ambient .math-form input,
+.ambient .math-expression small { color: var(--study-ink); }
+.ambient .step-dots span { background: rgba(25, 53, 55, .24); }
+.ambient .step-dots .active { background: var(--study-deep); }
+.ambient .study-center .pill {
+  background: transparent;
+  border: 1px solid var(--study-rule);
+  color: var(--study-ink);
+}
+.ambient .light-orb,
+.ambient .instruction-icon { background: transparent; border: 1px solid var(--study-rule-soft); color: var(--study-deep); }
+.ambient .instruction-card { background: transparent; border-left: 2px solid var(--study-rule); }
+.ambient .instruction-card b,
+.ambient .instruction-card span { color: var(--study-ink); }
+.ambient .pair-tile,
+.ambient .answer-field { border-bottom: 1px solid var(--study-rule-soft); }
+.ambient .pair-arrow { color: var(--study-deep); }
+.ambient .math-card { border-top: 1px solid var(--study-rule); border-bottom: 1px solid var(--study-rule); }
+.ambient .answer-field input,
+.ambient .math-form input { border: 1px solid var(--study-rule); }
+.ambient .answer-field input::placeholder,
+.ambient .math-form input::placeholder { color: var(--study-muted); opacity: .92; }
+.ambient .answer-field input:disabled { color: var(--study-ink); opacity: .85; -webkit-text-fill-color: var(--study-ink); }
+.ambient .answer-field input:focus-visible,
+.ambient .math-form input:focus-visible { outline: 3px solid var(--study-deep); outline-offset: 2px; }
+.ambient .progress-track { background: rgba(23, 44, 45, .20); }
+.ambient .progress-fill { background: var(--study-deep); }
+.ambient .btn-primary { background: var(--study-deep); color: #fff; }
+.ambient .btn-primary:hover:not(:disabled) { background: #102e31; }
+.ambient .btn-secondary { background: transparent; color: var(--study-ink); border-color: var(--study-rule); }
+.ambient .clock-heading b.urgent { color: #702e29; }
+.ambient .study-under { text-shadow: none; }
+.ambient .error-banner { background: transparent; color: #5d2020; border-color: #792929; }
+@media (max-width: 680px) {
+  .ambient .study-card { border-radius: 5px; }
+  .ambient .study-header > .brand,
+  .ambient .study-header-right { border-radius: 4px; }
+}
