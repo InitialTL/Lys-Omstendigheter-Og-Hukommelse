@@ -286,6 +286,50 @@ def start_round(participant_id: str) -> dict | None:
     return get_next(participant_id)
 
 
+def cancel_acclimation(participant_id: str, round_index: int, expected_phase_end_at: float) -> None:
+    """Undo only the CURRENT 60-second adaptation, never a learning phase.
+
+    The expected deadline guards against an out-of-order cancel from a stale tab
+    deleting a freshly restarted round. This transaction preserves completed
+    rounds and does not erase study responses.
+    """
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        participant = db.execute(
+            "SELECT protocol_version FROM study_participants WHERE id=?", (participant_id,)
+        ).fetchone()
+        if not participant or participant["protocol_version"] != PROTOCOL_VERSION:
+            raise ValueError("participant")
+        done_count = db.execute(
+            "SELECT COUNT(*) FROM study_results WHERE participant_id=?", (participant_id,)
+        ).fetchone()[0]
+        if round_index != done_count or not 0 <= round_index < 3:
+            raise ValueError("out_of_order")
+        started = db.execute(
+            "SELECT started_at FROM study_rounds WHERE participant_id=? AND round_index=?",
+            (participant_id, round_index),
+        ).fetchone()
+        if started is None:
+            raise ValueError("not_started")
+        deadline = started["started_at"] + ACCLIMATION_SECONDS
+        if abs(deadline - expected_phase_end_at) > 0.001:
+            raise ValueError("stale_round")
+        if time.time() >= deadline:
+            raise ValueError("learning_already_started")
+        # A draft should never exist before acclimation is complete. Reject
+        # unexpected data rather than silently removing it.
+        has_draft = db.execute(
+            "SELECT 1 FROM study_drafts WHERE participant_id=? AND round_index=?",
+            (participant_id, round_index),
+        ).fetchone()
+        if has_draft:
+            raise ValueError("answers_already_saved")
+        db.execute(
+            "DELETE FROM study_rounds WHERE participant_id=? AND round_index=?",
+            (participant_id, round_index),
+        )
+
+
 def save_draft(participant_id: str, round_index: int, revision: int, answers: list[str]) -> dict:
     """Persist a small checkpoint during recall. Earlier revisions never overwrite newer ones.
 

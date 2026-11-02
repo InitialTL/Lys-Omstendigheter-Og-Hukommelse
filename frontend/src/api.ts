@@ -82,6 +82,12 @@ export const api = {
   start: (id: string) => request<StudyState>(`/api/participants/${encodeURIComponent(id)}/rounds/start`, {
     method: 'POST', headers: authenticatedHeaders(),
   }),
+  cancelAcclimation: (id: string, round: number, expectedPhaseEndAt: number) =>
+    request<StudyState>(`/api/participants/${encodeURIComponent(id)}/rounds/${round}/cancel-acclimation`, {
+      method: 'POST',
+      headers: authenticatedHeaders(),
+      body: JSON.stringify({ expected_phase_end_at: expectedPhaseEndAt }),
+    }),
   withdraw: async (id: string): Promise<void> => {
     const response = await fetch(`/api/participants/${encodeURIComponent(id)}`, { method: 'DELETE', cache: 'no-store', referrerPolicy: 'no-referrer', headers: authenticatedHeaders() });
     if (!response.ok) throw new Error(`Unable to withdraw (${response.status})`);

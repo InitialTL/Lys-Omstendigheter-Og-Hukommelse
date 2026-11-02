@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import {
-  ArrowRight, Brain, Check, CheckCircle2, Clock3, Eye,
+  ArrowLeft, ArrowRight, Brain, Check, CheckCircle2, Clock3, Eye,
   Focus, Lightbulb, LockKeyhole, Monitor, Circle, RefreshCw, Maximize, Minimize, VolumeX,
   ShieldCheck, Sun, ThermometerSun,
 } from 'lucide-react';
@@ -271,11 +271,42 @@ function Setup({ condition, index, lang, onStart, busy, colorReady }: {
   </div>;
 }
 
-function Acclimation({ seconds, condition }: { seconds: number; condition: Condition }) {
+function Acclimation({ seconds, condition, lang, onCancel, busy, error }: {
+  seconds: number; condition: Condition; lang: Language; onCancel: () => Promise<void>;
+  busy: boolean; error: string | null;
+}) {
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const t = (nb: string, en: string) => translate(nb, en, lang);
   return <main className={`acclimation-screen acclimation-${condition.toLowerCase()}`}
     aria-label="60-second screen color adaptation">
-    <div className="acclimation-timer" role="timer" aria-live="off" aria-label={`${seconds} seconds remaining`}>
-      {String(Math.floor(seconds / 60)).padStart(2,'0')}:{String(seconds % 60).padStart(2,'0')}
+    <div className="acclimation-stack">
+      <div className="acclimation-timer" role="timer" aria-live="off" aria-label={`${seconds} seconds remaining`}>
+        {String(Math.floor(seconds / 60)).padStart(2,'0')}:{String(seconds % 60).padStart(2,'0')}
+      </div>
+      <div className="acclimation-actions">
+        <p className="acclimation-explanation">{t(
+          'Vi venter i 60 sekunder slik at øynene kan venne seg til bakgrunnsfargen. Runden fortsetter automatisk. Du trenger ikke trykke på noe.',
+          'The 60-second wait lets your eyes adapt to the background color. The round continues automatically. You do not need to press anything.'
+        )}</p>
+        {seconds > 0 && (confirmCancel ? <>
+          <p className="acclimation-confirm-message" role="status">{t(
+            'Vil du avbryte? Da går du tilbake til rundestart, og de 60 sekundene starter på nytt neste gang.',
+            'Cancel this wait? You will return to round setup, and the full 60 seconds will restart next time.'
+          )}</p>
+          <div className="acclimation-buttons">
+            <button type="button" className="acclimation-back" disabled={busy}
+              onClick={() => setConfirmCancel(false)}>{t('Fortsett å vente', 'Keep waiting')}</button>
+            <button type="button" className="acclimation-back acclimation-confirm-button"
+              disabled={busy} onClick={() => void onCancel()}>
+              <ArrowLeft size={17}/>{busy ? t('Går tilbake …', 'Going back…') : t('Ja, gå tilbake', 'Yes, go back')}
+            </button>
+          </div>
+        </> : <button type="button" className="acclimation-back" disabled={busy}
+            onClick={() => setConfirmCancel(true)}>
+          <ArrowLeft size={17}/>{t('Tilbake til rundestart', 'Go back to round setup')}
+        </button>)}
+        {error && <p className="acclimation-error" role="alert">{error}</p>}
+      </div>
     </div>
   </main>;
 }
@@ -473,9 +504,9 @@ function Recall({ state, seconds, offsetSeconds, lang, id, onSubmit, busy, error
   </div>;
 }
 
-function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefresh, onSubmit, onWithdraw, busy, error }: {
+function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onCancelAcclimation, onRefresh, onSubmit, onWithdraw, busy, error }: {
   state: StudyState; offsetSeconds: number; lang: Language; onLanguageChange: ChangeLanguage;
-  onStart: () => Promise<void>; onRefresh: () => Promise<void>;
+  onStart: () => Promise<void>; onCancelAcclimation: () => Promise<void>; onRefresh: () => Promise<void>;
   onSubmit: (answers: string[], hiddenCount: number) => Promise<void>; onWithdraw: () => Promise<void>; busy: boolean; error: string | null;
 }) {
   const condition = state.condition ?? 'NEUTRAL';
@@ -526,7 +557,8 @@ function Study({ state, offsetSeconds, lang, onLanguageChange, onStart, onRefres
   const label = LABELS[condition];
   return <div className={`experiment-surface ${phase === 'acclimation' ? 'is-acclimating' : ''} ${phase === 'setup' && index === 0 ? 'intro-transition' : ''}`}
     style={{ '--ambient-color': COLORS[condition], backgroundColor: COLORS[condition] } as CSSProperties}>
-    {phase === 'acclimation' ? <Acclimation condition={condition} seconds={seconds}/> :
+    {phase === 'acclimation' ? <Acclimation key={`${index}-${state.phase_end_at}`} condition={condition} seconds={seconds} lang={lang}
+      onCancel={onCancelAcclimation} busy={busy} error={error}/> :
     <div className="ambient">
     <div className="ambient-overlay">
       <header className="study-header"><Brand light/>
@@ -752,6 +784,22 @@ export default function App() {
     finally { setBusy(false); }
   }, [id, busy]);
 
+  const cancelAcclimation = useCallback(async () => {
+    if (!id || !state || busy || state.phase !== 'acclimation' ||
+        state.round_index === undefined || state.phase_end_at == null) return;
+    setBusy(true); setError(null);
+    try {
+      const data = await api.cancelAcclimation(id, state.round_index, state.phase_end_at);
+      setOffset(data.server_now - Date.now() / 1000);
+      setState(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to return to round setup');
+      // If the phase advanced while the request was in flight, re-sync rather
+      // than showing a stale acclimation screen or offering a time bypass.
+      try { await getState(id); } catch { /* retain the actionable error */ }
+    } finally { setBusy(false); }
+  }, [id, state, busy, getState]);
+
   const submit = useCallback(async (answers: string[], hidden: number) => {
     if (!id || !state || busy || state.round_index === undefined) return;
     const round = state.round_index;
@@ -839,5 +887,5 @@ export default function App() {
     onTimeout={refresh} deadline={state?.perception_deadline_at} offsetSeconds={offset} busy={busy} error={error}/>;
   if (view === 'complete') return <Complete lang={lang} onLanguageChange={setLang} onWithdraw={withdraw} error={error} state={state}/>;
   if (!state || !id) return null;
-  return <Study state={state} lang={lang} onLanguageChange={setLang} offsetSeconds={offset} onStart={start} onRefresh={refresh} onSubmit={submit} onWithdraw={withdraw} busy={busy} error={error}/>;
+  return <Study state={state} lang={lang} onLanguageChange={setLang} offsetSeconds={offset} onStart={start} onCancelAcclimation={cancelAcclimation} onRefresh={refresh} onSubmit={submit} onWithdraw={withdraw} busy={busy} error={error}/>;
 }

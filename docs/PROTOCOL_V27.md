@@ -13,3 +13,19 @@ Dersom nettverket fell bort, kan deltakaren vende tilbake seinare med den same �
 `study_results` og `study_perceptions` er framleis separate tabellar. Det blir ikkje gjort automatiske skjulte skriveoperasjonar for persepsjonsskjemaet. Inga kontinuerleg serveroppgåve eller ekstra prosess er nødvendig.
 
 Den siste ordoppgåva og spørjeteiknet i regneoppgåvene har elles fått ein meir einsarta, dempa tekststil, utan endring i innhaldet i regneoppgåvene.
+
+## Merknad om brukargrensesnitt frå versjon 2.7.5
+
+Tilvenningsfasen varer framleis 60 sekund rekna på tenaren, med uendra bakgrunnsfarge.
+Frå programvareversjon 2.7.5 er det òg vist ei kort forklaring og ein diskret
+«Tilbake til rundestart»-kontroll i same fargeplan. Kontrollens totrinnsstadfesting
+hindrar utilsikta avbrot. Avbrot er berre lov **før** innlæringa har byrja;
+rundestarten blir då sletta transaksjonelt og neste start får 60 nye sekund.
+Ingen ferdige resultat, spørjeskjemasvar eller ordpar blir sletta eller endra.
+
+Dette er ei **endring av det visuelle grensesnittet under stimulustida** i
+forhold til den tidlegare formuleringa «berre farge og nedtelling». Sjølv om
+teksten er den same i alle tre fargevilkår, kan han påverke deltakarens
+oppmerksamheit. Noter distribusjonsdato og skil om nødvendig deltakarar etter
+programvareversjon i metode og analyse. Ikkje bland umerka grupper frå før og
+etter UI-endringa ved strenge samanlikningar.

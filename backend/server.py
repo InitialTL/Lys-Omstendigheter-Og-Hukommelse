@@ -152,6 +152,11 @@ class Submission(BaseModel):
     math_correct: int = Field(default=0, ge=0, le=100)
 
 
+class CancelAcclimation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_phase_end_at: float = Field(gt=0, allow_inf_nan=False)
+
+
 class DraftCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
     revision: int = Field(ge=1, le=1000000)
@@ -271,6 +276,19 @@ def start_round(participant_id: str, x_participant_token: str | None = Header(de
         raise HTTPException(status_code=404, detail="Unknown participant")
     if state["finished"]:
         raise HTTPException(status_code=409, detail="Study completed")
+    return build_state(participant_id)
+
+
+@app.post("/api/participants/{participant_id}/rounds/{round_index}/cancel-acclimation")
+def cancel_acclimation(participant_id: str, round_index: int, payload: CancelAcclimation,
+                       x_participant_token: str | None = Header(default=None)):
+    authorize(participant_id, x_participant_token)
+    if not 0 <= round_index < 3:
+        raise HTTPException(status_code=404, detail="Unknown round")
+    try:
+        database.cancel_acclimation(participant_id, round_index, payload.expected_phase_end_at)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=f"Cannot go back: {exc}") from exc
     return build_state(participant_id)
 
 

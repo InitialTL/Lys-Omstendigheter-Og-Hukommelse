@@ -81,6 +81,21 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         page.get_by_role('button', name='Start this round').click()
         page.locator('.acclimation-screen').wait_for()
         assert page.locator('.acclimation-screen .study-card').count() == 0
+        assert page.get_by_text('The 60-second wait lets your eyes adapt', exact=False).is_visible()
+        assert page.get_by_role('button', name='Go back to round setup').is_visible()
+        if round_index == 0 and width == 390:
+            page.get_by_role('button', name='Go back to round setup').click()
+            page.get_by_role('button', name='Keep waiting').click()
+            assert page.locator('.acclimation-screen').is_visible()
+            page.get_by_role('button', name='Go back to round setup').click()
+            page.get_by_role('button', name='Yes, go back').click()
+            page.locator('.study-setup').wait_for(timeout=10000)
+            with sqlite3.connect(db_path) as db:
+                assert db.execute('SELECT COUNT(*) FROM study_rounds WHERE participant_id=?', (participant_id,)).fetchone()[0] == 0
+            page.get_by_role('button', name='Start this round').click()
+            page.locator('.acclimation-screen').wait_for()
+            assert page.get_by_role('button', name='Go back to round setup').is_visible()
+
         condition = next(name for name in expected_colors if page.locator('.acclimation-' + name.lower()).count())
         assert condition not in conditions_seen, f'Duplicate condition: {condition}'
         conditions_seen.append(condition)

@@ -302,3 +302,74 @@
 @media (max-width: 355px) {
   .topbar .brand-copy { display: none; }
 }
+
+/* Reversible preparation only: all three color conditions share the same
+   small, transparent controls; nothing overlays the color stimulus. */
+.experiment-surface .acclimation-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: transparent;
+}
+.acclimation-stack {
+  width: min(100%, 520px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(24px, 5vh, 44px);
+}
+.acclimation-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+  text-align: center;
+  color: #17262d;
+}
+.acclimation-explanation {
+  max-width: 48ch;
+  margin: 0;
+  font-size: clamp(13px, 2.6vw, 15px);
+  line-height: 1.55;
+  font-weight: 560;
+}
+.acclimation-confirm-message {
+  max-width: 45ch;
+  margin: 0;
+  line-height: 1.5;
+  font-size: 13px;
+  font-weight: 630;
+}
+.acclimation-buttons {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.experiment-surface .acclimation-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  max-width: 100%;
+  padding: 10px 17px;
+  border: 1px solid rgba(23,38,45,.52);
+  border-radius: 100px;
+  background: transparent;
+  color: #17262d;
+  font: 620 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+.experiment-surface .acclimation-back:hover:not(:disabled) { border-color: #17262d; text-decoration: underline; }
+.experiment-surface .acclimation-back:focus-visible { outline: 3px solid #17262d; outline-offset: 3px; }
+.experiment-surface .acclimation-back:disabled { opacity: .5; cursor: wait; }
+.acclimation-error { font-size: 13px; line-height: 1.4; margin: 0; max-width: 44ch; }
+@media (max-width: 420px) {
+  .acclimation-stack { gap: 20px; }
+  .acclimation-explanation { font-size: 13px; }
+  .experiment-surface .acclimation-back { min-height: 44px; font-size: 13px; }
+}

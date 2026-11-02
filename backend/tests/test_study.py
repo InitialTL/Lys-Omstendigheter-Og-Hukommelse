@@ -82,6 +82,73 @@ def test_experiment_flow_and_server_timers(client):
     assert tuple(row) == (8, 1, 'ORANGE')
 
 
+def test_cancel_acclimation_returns_to_setup_and_restarts_full_wait(client):
+    c, clock = client
+    registration = c.post('/api/participants', json={
+        'language': 'en', 'age_band': '18_24', 'gender': 'prefer_not', 'consent': True
+    }).json()
+    pid = registration['participant_id']
+    c.headers['X-Participant-Token'] = registration['access_token']
+    base = f'/api/participants/{pid}'
+    first = c.post(base + '/rounds/start').json()
+    assert first['phase'] == 'acclimation'
+    original_deadline = first['phase_end_at']
+
+    # Missing, invalid and cross-participant sessions must not erase a round.
+    cancel_url = base + '/rounds/0/cancel-acclimation'
+    assert c.post(cancel_url, json={}).status_code == 422
+    assert c.post(cancel_url, json={'expected_phase_end_at': original_deadline},
+                  headers={'X-Participant-Token': 'wrong-token'}).status_code == 401
+    assert c.post(base + '/rounds/1/cancel-acclimation', json={
+        'expected_phase_end_at': original_deadline
+    }).status_code == 409
+    assert c.post(cancel_url, json={
+        'expected_phase_end_at': original_deadline + 10
+    }).status_code == 409
+
+    clock['now'] += 15
+    cancelled = c.post(cancel_url, json={'expected_phase_end_at': original_deadline})
+    assert cancelled.status_code == 200
+    assert cancelled.json()['phase'] == 'setup'
+    assert cancelled.json()['round_index'] == 0
+    with database.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM study_rounds WHERE participant_id=?', (pid,)).fetchone()[0] == 0
+        assert db.execute('SELECT COUNT(*) FROM study_results WHERE participant_id=?', (pid,)).fetchone()[0] == 0
+
+    assert c.post(cancel_url, json={'expected_phase_end_at': original_deadline}).status_code == 409
+    clock['now'] += 0.5
+    restarted = c.post(base + '/rounds/start').json()
+    assert restarted['phase'] == 'acclimation'
+    assert restarted['phase_end_at'] == pytest.approx(clock['now'] + 60)
+    # An old request from another tab cannot delete the new timer.
+    assert c.post(cancel_url, json={'expected_phase_end_at': original_deadline}).status_code == 409
+    assert c.get(base + '/next').json()['phase'] == 'acclimation'
+    clock['now'] += 60
+    assert c.get(base + '/next').json()['phase'] == 'learning'
+    assert c.post(cancel_url, json={
+        'expected_phase_end_at': restarted['phase_end_at']
+    }).status_code == 409
+    assert c.get(base + '/next').json()['phase'] == 'learning'
+
+
+def test_cancel_acclimation_boundary_is_server_enforced(client):
+    c, clock = client
+    p = c.post('/api/participants', json={
+        'language':'nb','age_band':'16_17','gender':'prefer_not','consent':True
+    }).json()
+    pid = p['participant_id']
+    c.headers['X-Participant-Token'] = p['access_token']
+    base = f'/api/participants/{pid}'
+    initial = c.post(base + '/rounds/start').json()
+    clock['now'] += 60
+    # At the exact 60-second boundary, the server must reject any cancellation.
+    result = c.post(base + '/rounds/0/cancel-acclimation', json={
+        'expected_phase_end_at': initial['phase_end_at']
+    })
+    assert result.status_code == 409
+    assert c.get(base + '/next').json()['phase'] == 'learning'
+
+
 def test_complete_three_rounds_and_export(client, monkeypatch):
     c, clock = client
     response = c.post('/api/participants', json={
