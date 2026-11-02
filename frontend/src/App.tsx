@@ -169,7 +169,6 @@ function Intro({ lang, setLang, onRegister, busy, error }:
           <option value="nonbinary">{t('Ikke-binær', 'Non-binary')}</option>
           <option value="other">{t('Annet', 'Other')}</option>
         </select></label>
-}
         <label className="consent-control"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/>
           <span>{t('Jeg deltar frivillig og samtykker til at aldersgruppe, eventuelt kjønn, språk, testresultater og valgfrie svar om hvordan fargene opplevdes lagres med en tilfeldig deltaker-ID for forskning. Ingen navn eller e-postadresser samles inn.',
             'I participate voluntarily and agree that my age range, optional gender, language, test results and optional color-perception feedback are stored under a random participant ID for research. No names or email addresses are collected.')}</span>
