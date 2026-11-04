@@ -52,6 +52,25 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     # Russian selection must support Cyrillic search, translated consent, centered
     # labels, and wrapping rather than ellipsizing long labels.
     page.locator('#registration-language').click()
+    search_input = page.locator('#registration-language-panel input')
+    search_box = page.locator('#registration-language-panel .lang-picker-search')
+    search_input.focus()
+    # A single rounded ring belongs on the search container, not a square
+    # outline around the inner text input. Keep keyboard focus visible.
+    input_style = search_input.evaluate("""el => {
+      const css = getComputedStyle(el);
+      return {outline:css.outlineStyle, shadow:css.boxShadow};
+    }""")
+    box_style = search_box.evaluate("""el => {
+      const css = getComputedStyle(el);
+      return {outline:css.outlineStyle, shadow:css.boxShadow,
+              radius:css.borderRadius, border:css.borderColor};
+    }""")
+    assert input_style['outline'] == 'none', input_style
+    assert input_style['shadow'] == 'none', input_style
+    assert box_style['radius'] == '11px', box_style
+    assert box_style['shadow'] != 'none', box_style
+    assert box_style['border'] == 'rgb(87, 126, 172)', box_style
     page.locator('#registration-language-panel input').fill('Рус')
     russian_option = page.locator('#registration-language-panel .lang-picker-option').filter(has_text='Русский')
     assert russian_option.count() == 1
