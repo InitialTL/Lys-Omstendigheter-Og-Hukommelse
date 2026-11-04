@@ -49,3 +49,15 @@ Mørkret kan ikkje verifiserast via nettlesaren.
 
 Startsida kan vise anonymt tal på deltakarar med tre fullførte rundar.
 Resultatsida kan dele offentleg studielenkje utan deltakaropplysningar.
+
+## Språk og framdriftsvisning (4. november 2026)
+
+Russisk er lagt til som studiespråk med kyrilliske objektord og Unicode-støtta
+poengberekning. Eksisterande SQLite-deltakarar og resultat blir tekne vare på
+ved migrering av språkkravet i tabellen. Språkveljaren har no fleirlinja,
+sentrert tekst. Den tidsstyrte framdriftslinja har same breidd og høgd i
+innlæring, rekneoppgåver og hugsetest, med sentrert tidsvising.
+Ingen fargar, tidsfristar, ordparrekkjefølgjer eller grunnreglar for skåring
+blir endra. Russiske svar er enno ikkje normerte mot morsmålsbrukarar. Noter
+versjonsdato i datainnsamlinga og vurder russiskspråklege deltakarar som
+eiga gruppe i analysen.
