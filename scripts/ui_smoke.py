@@ -55,6 +55,11 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     search_input = page.locator('#registration-language-panel input')
     search_box = page.locator('#registration-language-panel .lang-picker-search')
     search_input.focus()
+    # Wait for the subtle CSS border-color transition before inspecting styles.
+    page.wait_for_function("""() => {
+      const box = document.querySelector('#registration-language-panel .lang-picker-search');
+      return box && getComputedStyle(box).borderColor === 'rgb(87, 126, 172)';
+    }""")
     # A single rounded ring belongs on the search container, not a square
     # outline around the inner text input. Keep keyboard focus visible.
     input_style = search_input.evaluate("""el => {
