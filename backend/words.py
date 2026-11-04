@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-LANGUAGES = ("nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro")
+LANGUAGES = ("nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro", "ru")
 
 # Visibly and phonologically distinct pseudowords. This is a new pilot
 # protocol, not a validated normed psychometric test. Do not mix V2.2 scores.
@@ -89,13 +89,119 @@ _ADDITIONAL_LABELS = {
     'fork': (('forchetta',), ('garfo',), ('vork',), ('gaffel',), ('widelec',), ('furculiță',)),
 }
 for _key, _items in _ADDITIONAL_LABELS.items():
-    TARGETS[_key].update(dict(zip(LANGUAGES[6:], _items)))
+    TARGETS[_key].update(dict(zip(LANGUAGES[6:12], _items)))
+
+
+# Russian translations for fixed stimuli, with common accepted synonyms.
+# These are pilot labels and require native-speaker psychometric validation.
+_RUSSIAN_LABELS = {
+    "chair": [
+      "стул"
+  ],
+    "key": [
+      "ключ"
+  ],
+    "apple": [
+      "яблоко"
+  ],
+    "bicycle": [
+      "велосипед"
+  ],
+    "lamp": [
+      "лампа"
+  ],
+    "book": [
+      "книга"
+  ],
+    "spoon": [
+      "ложка"
+  ],
+    "window": [
+      "окно"
+  ],
+    "shoe": [
+      "ботинок",
+      "туфля"
+  ],
+    "cup": [
+      "чашка",
+      "кружка"
+  ],
+    "clock": [
+      "часы",
+      "настенные часы"
+  ],
+    "bridge": [
+      "мост"
+  ],
+    "flower": [
+      "цветок"
+  ],
+    "table": [
+      "стол"
+  ],
+    "pencil": [
+      "карандаш"
+  ],
+    "door": [
+      "дверь"
+  ],
+    "basket": [
+      "корзина"
+  ],
+    "mirror": [
+      "зеркало"
+  ],
+    "bottle": [
+      "бутылка"
+  ],
+    "hat": [
+      "шляпа"
+  ],
+    "umbrella": [
+      "зонт",
+      "зонтик"
+  ],
+    "candle": [
+      "свеча"
+  ],
+    "towel": [
+      "полотенце"
+  ],
+    "plate": [
+      "тарелка"
+  ],
+    "glove": [
+      "перчатка"
+  ],
+    "ladder": [
+      "лестница",
+      "стремянка"
+  ],
+    "pillow": [
+      "подушка"
+  ],
+    "fork": [
+      "вилка"
+  ],
+    "scissors": [
+      "ножницы"
+  ],
+    "camera": [
+      "фотоаппарат",
+      "камера"
+  ]
+}
+for _key, _variants in _RUSSIAN_LABELS.items():
+    TARGETS[_key]["ru"] = tuple(_variants)
 
 
 def normalize(value: str) -> str:
     value = unicodedata.normalize("NFKD", value.strip().casefold())
     value = "".join(c for c in value if not unicodedata.combining(c))
-    value = re.sub(r"[^a-z0-9æøå]+", " ", value).strip()
+    # isalnum() supports Cyrillic and other Unicode scripts; the old ASCII-only
+    # regex erased every Russian answer before grading.
+    value = "".join(char if char.isalnum() else " " for char in value).strip()
     return re.sub(r"\s+", " ", value)
 
 

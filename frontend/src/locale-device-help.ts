@@ -1,6 +1,7 @@
 // Device-specific brightness directions in every supported interface language.
 export const extraDeviceHelp: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   "generic": {
+    "ru": "Откройте настройки экрана или быстрые настройки устройства и установите постоянную яркость. По возможности отключите автоматическую яркость, ночной режим и автоматическую коррекцию цвета.",
     "sv": "Öppna skärminställningarna eller snabbinställningarna och välj en fast ljusstyrka. Stäng av automatisk ljusstyrka, nattläge och färganpassning om möjligt.",
     "de": "Öffne die Bildschirm- oder Schnelleinstellungen und wähle eine feste Helligkeit. Deaktiviere nach Möglichkeit automatische Helligkeit, Nachtmodus und Farbanpassungen.",
     "fr": "Ouvrez les paramètres d’affichage ou les réglages rapides et choisissez une luminosité fixe. Désactivez si possible la luminosité automatique, le mode nuit et l’ajustement des couleurs.",
@@ -13,6 +14,7 @@ export const extraDeviceHelp: Readonly<Record<string, Readonly<Record<string, st
     "ro": "Deschide setările ecranului sau setările rapide și alege o luminozitate fixă. Dezactivează, dacă este posibil, luminozitatea automată, modul nocturn și ajustările de culoare."
   },
   "windows": {
+    "ru": "Windows 10/11: Параметры → Система → Дисплей → Яркость или клавиши Fn. Отключите «Ночной свет». На внешнем мониторе используйте кнопки самого монитора.",
     "nl": "Windows 10/11: Instellingen → Systeem → Beeldscherm → Helderheid, of gebruik de Fn-toetsen. Schakel Nachtlamp uit. Pas een externe monitor aan via de knoppen op het scherm.",
     "it": "Windows 10/11: Impostazioni → Sistema → Schermo → Luminosità, oppure usa i tasti Fn. Disattiva Luce notturna. Per un monitor esterno usa i comandi del monitor.",
     "pt": "Windows 10/11: Definições → Sistema → Ecrã → Brilho, ou utiliza as teclas Fn. Desativa a luz noturna. Num monitor externo, usa os comandos do monitor.",
@@ -21,6 +23,7 @@ export const extraDeviceHelp: Readonly<Record<string, Readonly<Record<string, st
     "ro": "Windows 10/11: Setări → Sistem → Afișaj → Luminozitate sau tastele Fn. Dezactivează lumina de noapte. Pentru un monitor extern folosește butoanele monitorului."
   },
   "macos": {
+    "ru": "macOS: Пункт управления → Дисплей / Яркость или Системные настройки → Дисплеи. Отключите True Tone, Night Shift и автоматическую яркость.",
     "nl": "macOS: Bedieningspaneel → Beeldscherm / Helderheid of Systeeminstellingen → Beeldschermen. Schakel True Tone, Night Shift en automatische helderheid uit.",
     "it": "macOS: Centro di Controllo → Schermo / Luminosità oppure Impostazioni di Sistema → Schermi. Disattiva True Tone, Night Shift e luminosità automatica.",
     "pt": "macOS: Central de Controlo → Ecrã / Brilho ou Definições do Sistema → Monitores. Desativa True Tone, Night Shift e brilho automático.",
@@ -29,6 +32,7 @@ export const extraDeviceHelp: Readonly<Record<string, Readonly<Record<string, st
     "ro": "macOS: Centru de control → Ecran / Luminozitate sau Configurări sistem → Monitoare. Dezactivează True Tone, Night Shift și luminozitatea automată."
   },
   "linux": {
+    "ru": "Linux: Используйте настройки экрана или питания рабочего окружения (GNOME/KDE) либо клавиши регулировки яркости. Отключите ночной режим. Внешний монитор настраивается его кнопками.",
     "nl": "Linux: Gebruik de scherm- of energie-instellingen van je bureaubladomgeving (GNOME/KDE) of de helderheidstoetsen. Schakel nachtmodus uit. Stel een externe monitor in met de knoppen op de monitor.",
     "it": "Linux: Usa le impostazioni dello schermo o dell'energia del desktop (GNOME/KDE) oppure i tasti della luminosità. Disattiva la modalità notturna. Regola i monitor esterni tramite i loro pulsanti.",
     "pt": "Linux: Usa as definições de ecrã ou energia do ambiente de trabalho (GNOME/KDE) ou as teclas de brilho. Desativa o modo noturno. Nos monitores externos, utiliza os botões do monitor.",
@@ -37,6 +41,7 @@ export const extraDeviceHelp: Readonly<Record<string, Readonly<Record<string, st
     "ro": "Linux: Folosește setările de ecran sau alimentare ale mediului desktop (GNOME/KDE) ori tastele de luminozitate. Dezactivează modul nocturn. Reglează monitoarele externe din butoanele lor."
   },
   "ios": {
+    "ru": "iPhone/iPad: Пункт управления → Яркость. Отключите Night Shift и True Tone в Настройки → Экран и яркость. Автоматическая яркость находится в Универсальном доступе.",
     "nl": "iPhone/iPad: Bedieningspaneel → Helderheid. Schakel Night Shift en True Tone uit via Instellingen → Scherm en helderheid. Automatische helderheid staat bij Toegankelijkheid.",
     "it": "iPhone/iPad: Centro di Controllo → Luminosità. Disattiva Night Shift e True Tone in Impostazioni → Schermo e luminosità. Luminosità automatica si trova in Accessibilità.",
     "pt": "iPhone/iPad: Central de Controlo → Brilho. Desativa Night Shift e True Tone em Definições → Ecrã e Brilho. O brilho automático está em Acessibilidade.",
@@ -45,6 +50,7 @@ export const extraDeviceHelp: Readonly<Record<string, Readonly<Record<string, st
     "ro": "iPhone/iPad: Centru de control → Luminozitate. Dezactivează Night Shift și True Tone în Configurări → Afișaj și luminozitate. Luminozitatea automată se află în Accesibilitate."
   },
   "android": {
+    "ru": "Android: Проведите вниз, чтобы открыть быстрые настройки → Яркость. В настройках экрана отключите адаптивную яркость и ночной режим / защиту зрения.",
     "nl": "Android: Veeg omlaag naar Snelle instellingen → Helderheid. Schakel adaptieve helderheid en Nachtlamp/oogcomfort uit bij de scherminstellingen.",
     "it": "Android: Scorri verso il basso per aprire Impostazioni rapide → Luminosità. Disattiva la luminosità adattiva e Luce notturna/Protezione occhi nelle impostazioni dello schermo.",
     "pt": "Android: Desliza para baixo para abrir as Definições rápidas → Brilho. Desativa o brilho adaptativo e a luz noturna/conforto ocular nas definições de ecrã.",
@@ -53,6 +59,7 @@ export const extraDeviceHelp: Readonly<Record<string, Readonly<Record<string, st
     "ro": "Android: Glisează în jos spre Setări rapide → Luminozitate. Dezactivează luminozitatea adaptivă și lumina de noapte/confortul ocular din setările ecranului."
   },
   "external": {
+    "ru": "Внешний монитор / телевизор: настройте яркость физическими кнопками или через экранное меню (OSD). Отключите динамическую контрастность, автоматическую яркость и корректировку цвета.",
     "nl": "Externe monitor/tv: Stel de helderheid in met de fysieke knoppen of het schermmenu (OSD). Schakel dynamisch contrast, automatische helderheid en kleuraanpassingen uit.",
     "it": "Monitor esterno/TV: Usa i pulsanti fisici o il menu sullo schermo (OSD) per regolare la luminosità. Disattiva contrasto dinamico, luminosità adattiva e regolazioni dei colori.",
     "pt": "Monitor externo/TV: Usa os botões físicos ou o menu no ecrã (OSD) para ajustar o brilho. Desativa contraste dinâmico, brilho adaptativo e ajustes de cor.",

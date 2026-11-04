@@ -49,6 +49,22 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     assert page.locator('#registration-language').inner_text().strip() == 'English'
     assert page.locator('#page-language').inner_text().strip() == 'English'
     assert page.locator('#registration-language').is_visible()
+    # Russian selection must support Cyrillic search, translated consent, centered
+    # labels, and wrapping rather than ellipsizing long labels.
+    page.locator('#registration-language').click()
+    page.locator('#registration-language-panel input').fill('Рус')
+    russian_option = page.locator('#registration-language-panel .lang-picker-option').filter(has_text='Русский')
+    assert russian_option.count() == 1
+    assert russian_option.evaluate('(el) => getComputedStyle(el).textAlign') == 'center'
+    assert russian_option.locator('.lang-option-names strong').evaluate(
+        '(el) => getComputedStyle(el).whiteSpace') == 'normal'
+    russian_option.click()
+    assert page.locator('#registration-language').inner_text().strip() == 'Русский'
+    assert page.evaluate('document.documentElement.lang') == 'ru'
+    assert page.locator('#registration-language > span').evaluate(
+        '(el) => getComputedStyle(el).whiteSpace') == 'normal'
+    assert page.get_by_text('Могут ли окружающие нас цвета').is_visible()
+    assert page.get_by_text('Важно: вы должны находиться в полностью тёмной комнате').is_visible()
     # Changing the experiment language must translate the entire onboarding UI.
     page.locator('#registration-language').click()
     page.locator('#registration-language-panel input').fill('neder')
@@ -103,6 +119,11 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
     assert participant_id
     learned_words = []
     conditions_seen = []
+    phase_tracks = {}
+    def measure_progress_track():
+        return page.locator('.progress-track').evaluate(
+            '(el) => { const r = el.getBoundingClientRect(); return [r.width, r.height]; }'
+        )
     expected_colors = {'ORANGE': 'rgb(240, 163, 75)', 'BLUE': 'rgb(138, 183, 234)', 'NEUTRAL': 'rgb(179, 179, 179)'}
     for round_index in range(3):
         page.get_by_role('button', name='Start this round').click()
@@ -151,10 +172,15 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         check_color(['.ambient', '.study-card', '.pair-tile', '.study-header > .brand', '.brand-mark'])
         learning = page.locator('.pair-tile b').all_inner_texts()
         learned_words.append(learning)
+        if round_index == 0:
+            phase_tracks['learning'] = measure_progress_track()
+            assert page.locator('.clock-heading').evaluate(
+                '(el) => getComputedStyle(el).textAlign') == 'center'
         advance(db_path, participant_id, round_index, 136)
         page.reload(wait_until='networkidle')
         page.locator('.math-form input').wait_for()
         check_color(['.ambient', '.study-card', '.math-card', '.math-form input'])
+        if round_index == 0: phase_tracks['distraction'] = measure_progress_track()
         # The equation's question mark must no longer have a bright accent tint.
         ink,mark = page.locator('.math-expression').evaluate('''el => [getComputedStyle(el).color,
             getComputedStyle(el.querySelector('.math-unknown')).color]''')
@@ -167,6 +193,12 @@ def one_device(browser, db_path: Path, width: int, height: int, mobile: bool):
         page.locator('.answers-grid input').first.wait_for()
         assert page.locator('.answers-grid input').count() == 8
         check_color(['.ambient', '.study-card', '.answer-field', '.answer-field input'])
+        if round_index == 0:
+            phase_tracks['recall'] = measure_progress_track()
+            assert set(phase_tracks) == {'learning', 'distraction', 'recall'}
+            assert all(abs(track[0] - phase_tracks['learning'][0]) < 2
+                       for track in phase_tracks.values()), phase_tracks
+            assert all(track[1] == 6 for track in phase_tracks.values()), phase_tracks
         recall = page.locator('.answer-field b').all_inner_texts()
         assert all(a != b for a,b in zip(learning,recall)), 'Words were not independently shuffled'
         assert not page.locator('.review-item').count(), 'Answer key leaked before completion'
@@ -381,6 +413,20 @@ def main():
                     assert not mobile_page.evaluate('document.documentElement.scrollWidth > innerWidth')
                     mobile_context.close()
                     print('PASS mobile Norwegian browser language and automatic Android guidance')
+                    russian_context = browser.new_context(
+                        viewport={'width': 375, 'height': 812}, locale='ru-RU',
+                        is_mobile=True, has_touch=True)
+                    russian_page = russian_context.new_page()
+                    russian_page.goto(BASE, wait_until='networkidle')
+                    assert russian_page.locator('#registration-language').inner_text().strip() == 'Русский'
+                    assert russian_page.get_by_text('Важно: вы должны находиться в полностью тёмной комнате').is_visible()
+                    russian_page.locator('.consent-control input').check()
+                    russian_page.get_by_role('button', name='Начать эксперимент').click()
+                    russian_page.locator('.calibration-checklist').wait_for(timeout=12000)
+                    assert 'Находитесь в полностью тёмной комнате' in russian_page.locator('.calibration-checklist').inner_text()
+                    assert not russian_page.evaluate('document.documentElement.scrollWidth > innerWidth')
+                    russian_context.close()
+                    print('PASS automatic Russian browser language, study enrollment and calibration')
                 finally:
                     browser.close()
         finally:

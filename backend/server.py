@@ -138,7 +138,7 @@ database.init_db()
 
 class Registration(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    language: Literal["nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro"]
+    language: Literal["nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro", "ru"]
     age_band: Literal["16_17", "18_24", "25_44", "45_plus", "prefer_not"]
     gender: Literal["woman", "man", "nonbinary", "other", "prefer_not"]
     consent: Literal[True]

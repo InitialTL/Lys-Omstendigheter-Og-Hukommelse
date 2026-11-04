@@ -5,6 +5,7 @@ import { interfaceKeys } from '../src/localeKeys.ts';
 
 test('browser language chooses a supported locale without silently assuming Norwegian', () => {
   assert.equal(detectBrowserLanguage(['pt-BR','fr-FR']), 'pt');
+  assert.equal(detectBrowserLanguage(['ru-RU','nl-NL']), 'ru');
   assert.equal(detectBrowserLanguage(['no-NO']), 'nb');
   assert.equal(detectBrowserLanguage(['nn-NO']), 'nb');
   assert.equal(detectBrowserLanguage(['es-MX']), 'es');
@@ -46,5 +47,21 @@ test('Dutch and all other additional study languages have actual interface trans
       'The study is complete','Share the link','Time remaining']) {
       assert.notEqual(translate('', key, lang), key, `English fallback for ${lang}: ${key}`);
     }
+  }
+});
+
+test('Russian is translated throughout the study including dynamic color labels', () => {
+  assert.equal(LANGUAGE_NAMES.ru, 'Русский');
+  assert.equal(interfaceKeys.length, 164);
+  assert.equal(translate('', 'Withdraw consent', 'ru'), 'Отозвать согласие');
+  assert.equal(translate('', 'Important: You must be in a completely dark room', 'ru'),
+    'Важно: вы должны находиться в полностью тёмной комнате');
+  assert.equal(translate('', 'Orange screen background', 'ru'), 'Оранжевый фон экрана');
+  assert.equal(translate('', 'Blue screen background', 'ru'), 'Синий фон экрана');
+  assert.equal(translate('', 'Gray screen background', 'ru'), 'Серый фон экрана');
+  assert.ok(hasInterfaceTranslation('ru', 'Orange screen background'));
+  for (const platform of Object.keys(OS_HELP)) {
+    assert.ok(OS_HELP[platform].ru, `Missing Russian help for ${platform}`);
+    assert.notEqual(OS_HELP[platform].ru, OS_HELP[platform].en);
   }
 });

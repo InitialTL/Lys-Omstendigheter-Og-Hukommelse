@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -17,6 +18,109 @@ def client(tmp_path, monkeypatch):
     fake_clock = {'now': 1_800_000_000.0}
     monkeypatch.setattr(database, 'time', SimpleNamespace(time=lambda: fake_clock['now']))
     return TestClient(server.app), fake_clock
+
+
+
+def test_russian_word_pairs_registration_and_unicode_grading(client):
+    c, clock = client
+    assert words.normalize('  СТУЛ!! ') == 'стул'
+    assert words.normalize('Ёж') == 'еж'
+    assert words.normalize('máviko _ ') == 'maviko'
+    assert words.normalize('ПЕРЧАТКА') == 'перчатка'
+    assert words.TARGETS['bicycle']['ru'][0] == 'велосипед'
+
+    created = c.post('/api/participants', json={
+        'language': 'ru', 'age_band': '18_24',
+        'gender': 'prefer_not', 'consent': True,
+    })
+    assert created.status_code == 201, created.text
+    pid = created.json()['participant_id']
+    c.headers['X-Participant-Token'] = created.json()['access_token']
+    base = f'/api/participants/{pid}'
+    assert c.post(base + '/rounds/start').status_code == 200
+    clock['now'] += 60
+    learning = c.get(base + '/next').json()
+    assert learning['phase'] == 'learning'
+    assert len(learning['pairs']) == 8
+    assert all(any('а' <= ch.lower() <= 'я' for ch in p['meaning'])
+               for p in learning['pairs'])
+    clock['now'] += 106
+    recall = c.get(base + '/next').json()
+    assert recall['phase'] == 'recall'
+    correct = {item['word']: item['meaning'].upper() for item in learning['pairs']}
+    answers = [correct[word] for word in recall['words']]
+    response = c.post(base + '/rounds/0/submit',
+                      json={'answers': answers, 'hidden_count': 0})
+    assert response.status_code == 200, response.text
+    with database.connect() as db:
+        row = db.execute(
+            'SELECT score, max_score FROM study_results WHERE participant_id=?',
+            (pid,),
+        ).fetchone()
+        assert tuple(row) == (8, 8)
+
+
+def test_adding_russian_migrates_legacy_constraint_without_erasing_results(client):
+    c, clock = client
+    created = c.post('/api/participants', json={
+        'language': 'nb', 'age_band': '18_24',
+        'gender': 'prefer_not', 'consent': True,
+    }).json()
+    pid = created['participant_id']
+    c.headers['X-Participant-Token'] = created['access_token']
+    base = f'/api/participants/{pid}'
+    c.post(base + '/rounds/start')
+    clock['now'] += 166
+    assert c.post(base + '/rounds/0/submit',
+                  json={'answers': [''] * 8, 'hidden_count': 0}).status_code == 200
+
+    # Recreate the historical participants CHECK constraint only; preserve
+    # the real child result, participant credentials and started-round data.
+    with sqlite3.connect(database.DB_PATH) as db:
+        db.execute('PRAGMA foreign_keys=OFF')
+        db.execute('BEGIN IMMEDIATE')
+        old_sql = db.execute(
+            "SELECT sql FROM sqlite_master WHERE name='study_participants'"
+        ).fetchone()[0]
+        assert "'ru'" in old_sql
+        old_sql = old_sql.replace(
+            'CREATE TABLE study_participants',
+            'CREATE TABLE study_participants_pre_ru',
+            1,
+        ).replace(",'ru'", '')
+        db.execute(old_sql)
+        db.execute(
+            'INSERT INTO study_participants_pre_ru SELECT * FROM study_participants'
+        )
+        db.execute('DROP TABLE study_participants')
+        db.execute(
+            'ALTER TABLE study_participants_pre_ru RENAME TO study_participants'
+        )
+        assert not db.execute('PRAGMA foreign_key_check').fetchall()
+
+    # Real startup migration must be repeatable, and it must retain results.
+    database.init_db()
+    database.init_db()
+    with database.connect() as db:
+        assert not db.execute('PRAGMA foreign_key_check').fetchall()
+        assert db.execute(
+            'SELECT COUNT(*) FROM study_participants WHERE id=?', (pid,)
+        ).fetchone()[0] == 1
+        assert db.execute(
+            'SELECT COUNT(*) FROM study_results WHERE participant_id=?', (pid,)
+        ).fetchone()[0] == 1
+        assert db.execute(
+            'SELECT COUNT(*) FROM study_rounds WHERE participant_id=?', (pid,)
+        ).fetchone()[0] == 1
+        assert "'ru'" in db.execute(
+            "SELECT sql FROM sqlite_master WHERE name='study_participants'"
+        ).fetchone()[0]
+    assert c.get(base + '/next').status_code == 200
+    another = c.post('/api/participants', json={
+        'language': 'ru', 'age_band': '25_44',
+        'gender': 'prefer_not', 'consent': True,
+    })
+    assert another.status_code == 201, another.text
 
 
 def test_balances_groups_and_orders(client):
