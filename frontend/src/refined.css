@@ -490,3 +490,129 @@
 
 /* Keep the registration language menu inside the form at phone widths. */
 .lang-picker:not(.lang-picker-compact) .lang-picker-panel { width:min(360px,100%); }
+
+
+/* Russian and long-language labels: centered, multi-line text instead of truncation. */
+.lang-picker-trigger {
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+  height: auto;
+  align-items: center;
+}
+.lang-picker-trigger > span {
+  min-width: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  line-height: 1.35;
+  text-align: center;
+}
+.lang-picker-option {
+  position: relative;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+  min-height: 82px;
+  gap: 5px;
+  text-align: center;
+  white-space: normal;
+}
+.lang-option-names {
+  width: 100%;
+  align-items: center;
+  text-align: center;
+  white-space: normal;
+}
+.lang-option-names strong,
+.lang-option-names small {
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.lang-picker-selected > svg {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  margin: 0;
+}
+@media (max-width: 420px) {
+  .lang-picker-option { min-height: 67px; }
+  .lang-picker-trigger { gap: 6px; }
+}
+
+/* Keep the timer track at a constant size across learning, arithmetic and recall. */
+.phase-main .clock {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+  margin-inline: auto;
+}
+.phase-main .clock-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  gap: 3px;
+  width: 100%;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.phase-main .clock-heading > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex-wrap: wrap;
+  text-align: center;
+  line-height: 1.35;
+}
+.phase-main .clock-heading b {
+  display: block;
+  width: 5ch;
+  margin-inline: auto;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.phase-main .progress-track {
+  box-sizing: border-box;
+  width: 100%;
+  height: 6px;
+  min-height: 6px;
+  max-height: 6px;
+  flex: none;
+  overflow: hidden;
+}
+.phase-main .progress-fill {
+  height: 100%;
+  min-height: 6px;
+}
+.recall-footer {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.recall-clock {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+  margin-inline: auto;
+}
+.recall-footer > .btn {
+  width: min(100%, 320px);
+  max-width: 100%;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}
+.recall-main .submit-note { text-align: center; }
+.step-dots { flex-shrink: 0; }
+.step-dots span { flex: 0 0 22px; }
