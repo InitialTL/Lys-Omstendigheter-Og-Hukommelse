@@ -5,13 +5,14 @@ import pt from './locale-pt.ts';
 import da from './locale-da.ts';
 import pl from './locale-pl.ts';
 import ro from './locale-ro.ts';
+import { russianInterface, russianConditionDescriptions } from './locale-ru.ts';
 import { originalLocalePatches } from './locale-original-patches.ts';
 import { extraDeviceHelp } from './locale-device-help.ts';
 
 /** Curated interface languages. Unknown keys fall back to English deliberately. */
 export const LANGUAGE_NAMES = {
   nb: 'Norsk', en: 'English', sv: 'Svenska', de: 'Deutsch', fr: 'Français', es: 'Español',
-  it: 'Italiano', pt: 'Português', nl: 'Nederlands', da: 'Dansk', pl: 'Polski', ro: 'Română',
+  it: 'Italiano', pt: 'Português', nl: 'Nederlands', da: 'Dansk', pl: 'Polski', ro: 'Română', ru: 'Русский',
 } as const;
 export type Language = keyof typeof LANGUAGE_NAMES;
 
@@ -242,13 +243,13 @@ const MESSAGES: Record<string, [string, string, string, string]> = {
 
 };
 
-const fullPacks: Partial<Record<Language, readonly string[]>> = { nl, it, pt, da, pl, ro };
+const fullPacks: Partial<Record<Language, readonly string[]>> = { nl, it, pt, da, pl, ro, ru: russianInterface };
 const interfaceKeyIndices = new Map(interfaceKeys.map((key, index) => [key, index]));
 
 export function hasInterfaceTranslation(lang: Language, en: string): boolean {
   if (lang === 'nb' || lang === 'en') return true;
   const index = interfaceKeyIndices.get(en);
-  if (index === undefined) return false;
+  if (index === undefined) return lang === 'ru' && Boolean(russianConditionDescriptions[en]);
   const full = fullPacks[lang];
   if (full) return Boolean(full[index]?.trim());
   const record = MESSAGES[en];
@@ -262,6 +263,8 @@ export function translate(nb: string, en: string, lang: Language): string {
   if (lang === 'en') return en;
   const index = interfaceKeyIndices.get(en);
   const pack = fullPacks[lang];
+  if (lang === 'ru' && index === undefined && russianConditionDescriptions[en])
+    return russianConditionDescriptions[en];
   if (pack && index !== undefined) return pack[index] ?? en;
   const record = MESSAGES[en];
   const position = ({sv:0,de:1,fr:2,es:3} as Partial<Record<Language,number>>)[lang];
