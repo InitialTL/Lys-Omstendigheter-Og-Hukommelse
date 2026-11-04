@@ -14,7 +14,7 @@ from itertools import permutations
 DB_PATH = Path(os.environ.get("STUDY_DATABASE", str(Path(__file__).with_name("results.db"))))
 PROTOCOL_VERSION = "2.7"
 WORDS_PER_ROUND = 8
-LANGUAGES = ("nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro")
+LANGUAGES = ("nb", "en", "sv", "de", "fr", "es", "it", "pt", "nl", "da", "pl", "ro", "ru")
 CONDITIONS = ("ORANGE", "BLUE", "NEUTRAL")
 SEQUENCES = (
     ("ORANGE", "BLUE", "NEUTRAL"),
@@ -49,7 +49,7 @@ def init_db() -> None:
         db.executescript("""
             CREATE TABLE IF NOT EXISTS study_participants (
                 id TEXT PRIMARY KEY,
-                language TEXT NOT NULL CHECK(language IN ('nb','en','sv','de','fr','es','it','pt','nl','da','pl','ro')),
+                language TEXT NOT NULL CHECK(language IN ('nb','en','sv','de','fr','es','it','pt','nl','da','pl','ro','ru')),
                 age_band TEXT NOT NULL,
                 gender TEXT NOT NULL,
                 group_name TEXT NOT NULL CHECK(group_name IN ('A','B','C')),
@@ -111,13 +111,13 @@ def init_db() -> None:
     with connect() as db:
         existing = {r[1] for r in db.execute('PRAGMA table_info(study_participants)')}
         schema = db.execute("SELECT sql FROM sqlite_master WHERE name='study_participants'").fetchone()[0]
-    if "'ro'" not in schema or 'protocol_version' not in existing or 'token_hash' not in existing:
+    if "'ru'" not in schema or 'protocol_version' not in existing or 'token_hash' not in existing:
         with sqlite3.connect(DB_PATH, timeout=15) as db:
             db.execute('PRAGMA foreign_keys=OFF')
             db.execute('BEGIN IMMEDIATE')
             db.execute('''CREATE TABLE study_participants_new_v23 (
                 id TEXT PRIMARY KEY,
-                language TEXT NOT NULL CHECK(language IN ('nb','en','sv','de','fr','es','it','pt','nl','da','pl','ro')),
+                language TEXT NOT NULL CHECK(language IN ('nb','en','sv','de','fr','es','it','pt','nl','da','pl','ro','ru')),
                 age_band TEXT NOT NULL,
                 gender TEXT NOT NULL,
                 group_name TEXT NOT NULL CHECK(group_name IN ('A','B','C')),
