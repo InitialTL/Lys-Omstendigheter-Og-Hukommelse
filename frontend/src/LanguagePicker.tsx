@@ -3,8 +3,8 @@ import {Check,ChevronDown,Globe2,Search,X} from 'lucide-react';
 import {LANGUAGE_NAMES} from './i18n';
 import type {Language} from './i18n';
 
-const ENGLISH:Record<Language,string>={nb:'Norwegian',en:'English',sv:'Swedish',da:'Danish',nl:'Dutch',de:'German',fr:'French',es:'Spanish',it:'Italian',pt:'Portuguese',pl:'Polish',ro:'Romanian'};
-const ORDER:Language[]=['nb','en','sv','da','nl','de','fr','es','it','pt','pl','ro'];
+const ENGLISH:Record<Language,string>={nb:'Norwegian',en:'English',sv:'Swedish',da:'Danish',nl:'Dutch',de:'German',fr:'French',es:'Spanish',it:'Italian',pt:'Portuguese',pl:'Polish',ro:'Romanian',ru:'Russian'};
+const ORDER:Language[]=['nb','en','sv','da','nl','de','fr','es','it','pt','pl','ro','ru'];
 const UI:Record<Language,[string,string,string]>={
 nb:['Søk etter språk','Ingen språk funnet','Velg språk'],
 en:['Search languages','No matching languages','Choose language'],
@@ -18,6 +18,7 @@ it:['Cerca una lingua','Nessuna lingua trovata','Scegli la lingua'],
 pt:['Pesquisar idiomas','Nenhum idioma encontrado','Escolher idioma'],
 pl:['Szukaj języka','Nie znaleziono języków','Wybierz język'],
 ro:['Caută o limbă','Nu s-au găsit limbi','Alege limba'],
+ru:['Поиск языка','Языки не найдены','Выбрать язык'],
 };
 const fold=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 
