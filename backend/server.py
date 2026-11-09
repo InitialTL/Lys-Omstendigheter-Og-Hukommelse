@@ -360,8 +360,8 @@ def admin_export_page():
 </head>
 <body>
   <h1>Dataeksport · Hukommelse LM</h1>
-  <p class="note">Skriv inn administratortokenet. Det brukes bare for forespørslene på denne siden og lagres ikke.</p>
-  <label for="token">Administratortoken</label>
+  <p class="note">Skriv inn passordet for å laste ned forsøksdata. Passordet sendes bare til serveren og lagres ikke i nettleseren.</p>
+  <label for="token">Passord</label>
   <input id="token" type="password" autocomplete="off" spellcheck="false" required>
   <h2>Last ned CSV</h2>
   <button type="button" data-path="/api/admin/export.csv" data-file="study_results.csv">Fullførte resultater</button>
@@ -374,7 +374,7 @@ def admin_export_page():
     async function download(button) {
       const token = tokenField.value.trim();
       if (!token) {
-        status.textContent = 'Skriv inn administratortokenet først.';
+        status.textContent = 'Skriv inn passordet først.';
         tokenField.focus();
         return;
       }
