@@ -14,7 +14,7 @@ from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.routing import APIRoute
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field, ConfigDict
@@ -358,6 +358,94 @@ def withdraw(participant_id: str, x_participant_token: str | None = Header(defau
     if not database.delete_participant(participant_id):
         raise HTTPException(status_code=404, detail="Unknown participant")
     return Response(status_code=204)
+
+
+
+@app.get("/api/admin", response_class=HTMLResponse, include_in_schema=False)
+def admin_export_page():
+    """Small same-origin download page; admin password is never put in a URL or storage."""
+    return HTMLResponse(
+        """<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Hukommelse LM · Dataeksport</title>
+  <style>
+    body{font:16px system-ui,sans-serif;max-width:620px;margin:48px auto;padding:0 20px;line-height:1.5;color:#202124}
+    h1{font-size:1.6rem}label{display:block;margin:24px 0 6px}
+    input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #999;border-radius:8px;font:inherit}
+    button{display:block;width:100%;margin:12px 0;padding:12px;border:1px solid #777;border-radius:8px;background:#f5f5f5;font:inherit;cursor:pointer}
+    button:disabled{opacity:.55;cursor:wait}#status{min-height:3em;margin-top:18px}
+    .note{color:#555;font-size:.92rem}
+  </style>
+</head>
+<body>
+  <h1>Dataeksport · Hukommelse LM</h1>
+  <p class="note">Skriv inn passordet for å laste ned forsøksdata. Passordet sendes bare til serveren og lagres ikke i nettleseren.</p>
+  <label for="token">Passord</label>
+  <input id="token" type="password" autocomplete="off" spellcheck="false" required>
+  <h2>Last ned CSV</h2>
+  <button type="button" data-path="/api/admin/export.csv" data-file="study_results.csv">Fullførte resultater</button>
+  <button type="button" data-path="/api/admin/perceptions.csv" data-file="perceptions.csv">Spørsmål etter forsøket</button>
+  <button type="button" data-path="/api/admin/drafts.csv" data-file="unfinished_drafts.csv">Ufullførte svarutkast</button>
+  <p id="status" role="status" aria-live="polite"></p>
+  <script>
+    const tokenField = document.getElementById('token');
+    const status = document.getElementById('status');
+    async function download(button) {
+      const token = tokenField.value.trim();
+      if (!token) {
+        status.textContent = 'Skriv inn passordet først.';
+        tokenField.focus();
+        return;
+      }
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Henter fil …';
+      status.textContent = '';
+      try {
+        const response = await fetch(button.dataset.path, {
+          method: 'GET',
+          headers: {'X-Admin-Token': token},
+          cache: 'no-store',
+          credentials: 'same-origin'
+        });
+        if (!response.ok) {
+          let detail = 'Forespørselen ble avvist.';
+          try {
+            const body = await response.json();
+            if (body.detail) detail = body.detail;
+          } catch (_) {}
+          status.textContent = 'Feil ' + response.status + ': ' + detail;
+          return;
+        }
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = button.dataset.file;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        status.textContent = 'Nedlasting startet: ' + button.dataset.file;
+      } catch (_) {
+        status.textContent = 'Kunne ikke kontakte serveren. Kontroller tilkoblingen og prøv igjen.';
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }
+    document.querySelectorAll('button[data-path]').forEach(button => {
+      button.addEventListener('click', () => download(button));
+    });
+  </script>
+</body>
+</html>""",
+        headers={"Cache-Control": "no-store, private"}
+    )
 
 
 @app.get("/api/admin/export.csv")
