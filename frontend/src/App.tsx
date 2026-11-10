@@ -133,7 +133,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
           'Turn off all lights and other screens and close the curtains or blinds. Your study screen must be the only light source. Dim light is not enough.')}</p></div>
         </div>
         <div className="stats-strip">
-          <div><Clock3 size={21}/><strong>15–18</strong><span>{t('minutter', 'minutes')}</span></div>
+          <div><Clock3 size={21}/><strong>10–12</strong><span>{t('minutter', 'minutes')}</span></div>
           <div><LayersIcon/><strong>3</strong><span>{t('runder', 'rounds')}</span></div>
           <div><LockKeyhole size={21}/><strong>{t('Ingen navn', 'No names')}</strong><span>{t('registreres', 'recorded')}</span></div>
         </div>
