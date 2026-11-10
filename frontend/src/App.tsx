@@ -178,7 +178,7 @@ function Intro({ lang, setLang, onRegister, busy, error }:
         <Button disabled={!consent || busy} className="fullwidth" onClick={() => onRegister({ language: lang, age_band: age, gender, consent: true })}>
           {busy ? t('Registrerer …', 'Registering…') : t('Start forsøket', 'Begin experiment')} <ArrowRight size={18}/>
         </Button>
-        <div className="enroll-footer"><span className="status-dot" /> {t('Tar omtrent 15–18 minutter', 'Approximately 15–18 minutes')}</div>
+        <div className="enroll-footer"><span className="status-dot" /> {t('Tar omtrent 10–12 minutter', 'Approximately 10–12 minutes')}</div>
       </aside>
     </main>
     <Footer lang={lang}/>
